@@ -9,7 +9,7 @@ requirements = [
     "related",
     "cloudpickle>=1.0.0",
 
-    "concise @git+https://github.com/basarnoyan1/concise.git",
+    "concise @git+https://github.com/basarnoyan1/concise.git#egg=concise",
 	"shapely<=1.8.5.post1",
     "deepexplain",
 
