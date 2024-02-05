@@ -1,6 +1,7 @@
 """Loss functions
 """
 import tensorflow as tf
+import tensorflow_probability as tfp
 import keras.losses as kloss
 from concise.utils.helper import get_from_module
 import keras.backend as K
@@ -23,7 +24,7 @@ def multinomial_nll(true_counts, logits):
 
     counts_per_example = tf.reduce_sum(true_counts_perm, axis=-1)
 
-    dist = tf.contrib.distributions.Multinomial(total_count=counts_per_example,
+    dist = tfp.distributions.Multinomial(total_count=counts_per_example,
                                                 logits=logits_perm)
 
     # Normalize by batch size. One could also normalize by
