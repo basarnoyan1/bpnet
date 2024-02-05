@@ -28,4 +28,4 @@ dependencies:
 - kipoiseq=0.3.4
 - pip:
   - git+https://github.com/kundajelab/DeepExplain.git
-  - git+https://github.com/pauldrinn/bpnet.git
+  - git+https://github.com/basarnoyan1/bpnet.git
