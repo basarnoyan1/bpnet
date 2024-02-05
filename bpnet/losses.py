@@ -28,7 +28,7 @@ def multinomial_nll(true_counts, logits):
 
     # Normalize by batch size. One could also normalize by
     # sequence length here.
-    batch_size = tf.to_float(tf.shape(true_counts)[0])
+    batch_size = tf.cast(tf.shape(true_counts)[0], dtype=tf.float32)
 
     return -tf.reduce_sum(dist.log_prob(true_counts_perm)) / batch_size
 
