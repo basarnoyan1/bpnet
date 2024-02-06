@@ -187,7 +187,7 @@ def heatmap_sequence(one_hot, ax=None, sort_idx=None, aspect='auto',
         ax2_divider = make_axes_locatable(ax)
         cax2 = ax2_divider.append_axes("top", size="5%", pad=0.05)
         # cb2 = colorbar(im2, cax=cax2, orientation="horizontal")
-        cb2 = Colorbar(img, cax=cax2, cmap=cmap, norm=norm, boundaries=bounds,
+        cb2 = Colorbar(None, img, cax=cax2, cmap=cmap, norm=norm, boundaries=bounds,
                        orientation="horizontal",
                        ticks=[0, 1, 2, 3], format=fmt)
         cax2.xaxis.set_ticks_position("top")
