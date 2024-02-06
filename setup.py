@@ -11,7 +11,7 @@ requirements = [
 
     "concise @git+https://github.com/basarnoyan1/concise.git#egg=concise",
 	"shapely<=1.8.5.post1",
-    "deepexplain @git+https://github.com/kundajelab/DeepExplain.git#egg=deepexplain",
+    "deepexplain",
 
     # ml
     "gin-config",
