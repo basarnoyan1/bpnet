@@ -34,7 +34,7 @@ requirements = [
     # genomics
     "pybigwig",
     "pybedtools",  # remove?
-    "modisco>=0.5.3.0",
+    "modisco @git+https://github.com/basarnoyan1/tfmodisco.git#egg=tfmodisco",
     # "pyranges",
 
     "joblib",
