@@ -4,37 +4,37 @@
 from setuptools import setup, find_packages
 
 requirements = [
-    "argh<0.28",
+    "argh",
     "attr",
     "related",
     "cloudpickle>=1.0.0",
 
     "concise @git+https://github.com/basarnoyan1/concise.git#egg=concise",
-	"shapely<=1.8.5.post1",
+	"shapely>=1.8.5.post1",
     "deepexplain",
 
     # ml
     "gin-config",
     "keras>=2.2.4",
-    "scikit-learn<=0.21.3",
+    "scikit-learn>=0.21.3",
     # "tensorflow",
 
     # numerics
-    "h5py<3",
+    "h5py",
     "numpy",
     "pandas",
     "scipy",
     "statsmodels",
 
     # Plotting
-    "matplotlib>=3.0.2,<3.4.0",
+    "matplotlib>=3.0.2",
     "plotnine",
     "seaborn",
 
     # genomics
     "pybigwig",
     "pybedtools",  # remove?
-    "modisco==0.5.3.0",
+    "modisco>=0.5.3.0",
     # "pyranges",
 
     "joblib",
@@ -60,7 +60,7 @@ requirements = [
 
 optional = [
     "comet_ml",
-    "wandb==0.8.7",
+    "wandb>=0.8.7",
     "fastparquet",
     "python-snappy",
     "ipywidgets",  # for motif simulation
