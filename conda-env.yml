@@ -3,30 +3,30 @@ channels:
 - conda-forge
 - bioconda
 dependencies:
-- python=3.7
+- python=3.10
 - git
 
 - bioconda::pybedtools>=0.7.10
 - bioconda::bedtools>=2.27.1
 - bioconda::pybigwig>=0.3.10
 - bioconda::pysam>=0.14.0
-- bioconda::genomelake=0.1.4
+- bioconda::genomelake>=0.1.4
 
 #- cython=0.29.22
-- h5py=2.10.0
+- h5py>=2.10.0
 #- numpy=1.19.2
 
-- pandas=1.1.5
-- fastparquet=0.5.0
-- python-snappy=0.6.0
-- pip=21.0.1
-- nb_conda=2.2.1
-- tensorflow-gpu=1.14
-- tensorflow-probability=0.7.0
-- keras=2.3.1
+- pandas>=1.1.5
+- fastparquet>=0.5.0
+- python-snappy>=0.6.0
+- pip>=21.0.1
+- nb_conda>=2.2.1
+- tensorflow-gpu>=1.14
+- tensorflow-probability>=0.7.0
+- keras>=2.3.1
 
-- kipoi=0.6.25
-- kipoiseq=0.3.4
+- kipoi>=0.6.25
+- kipoiseq>=0.3.4
 - pip:
   - git+https://github.com/kundajelab/DeepExplain.git
   - git+https://github.com/basarnoyan1/bpnet.git
