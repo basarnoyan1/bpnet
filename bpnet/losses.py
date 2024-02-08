@@ -2,9 +2,9 @@
 """
 import tensorflow as tf
 import tensorflow_probability as tfp
-import keras.losses as kloss
+import tensorflow.keras.losses as kloss
 from concise.utils.helper import get_from_module
-import keras.backend as K
+import tensorflow.keras.backend as K
 import gin
 from gin import config
 
