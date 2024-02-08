@@ -1,8 +1,8 @@
-import keras
-import keras.backend as K
-import keras.layers as kl
+from tensorflow import keras
+import tensorflow.keras.backend as K
+import tensorflow.keras.layers as kl
 from concise.utils.helper import get_from_module
-from keras.activations import softmax
+from tensorflow.keras.activations import softmax
 import tensorflow as tf
 import gin
 
