@@ -11,7 +11,7 @@ from argh.decorators import named, arg
 from uuid import uuid4
 import numpy as np
 from tqdm import tqdm
-import keras.backend as K
+import tensorflow.keras.backend as K
 from bpnet.dataspecs import DataSpec
 from bpnet.data import NumpyDataset
 from bpnet.utils import (create_tf_session, write_json,
