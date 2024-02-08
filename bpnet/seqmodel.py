@@ -27,7 +27,7 @@ class SeqModel:
                  # will be used for each task
                  heads,
                  tasks,
-                 optimizer=Adam(lr=0.004),
+                 optimizer=Adam(learning_rate=0.004),
                  seqlen=None,
                  input_shape=None,
                  input_name='seq'
