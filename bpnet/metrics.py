@@ -2,7 +2,8 @@ import sklearn.metrics as skm
 import logging
 import matplotlib.pyplot as plt
 from bpnet.utils import read_pkl
-from tensorflow.keras.models import load_model
+from tensorflow import keras
+from keras.models import load_model
 from bpnet.utils import _listify, create_tf_session
 from bpnet.stats import permute_array
 from bpnet.functions import softmax, mean

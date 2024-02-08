@@ -3,7 +3,8 @@
 from bpnet.seqmodel import SeqModel
 from bpnet.heads import ScalarHead, BinaryClassificationHead, ProfileHead
 import numpy as np
-import tensorflow.keras.layers as kl
+from tensorflow import keras
+import keras.layers as kl
 
 
 class TopDense:

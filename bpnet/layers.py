@@ -1,9 +1,10 @@
-import tensorflow.keras.layers as kl
-from tensorflow.keras.layers import Layer
+from tensorflow import keras
+import keras.layers as kl
+from keras.layers import Layer
 import tensorflow as tf
 from concise.utils.helper import get_from_module
 from concise.layers import SplineWeight1D
-from tensorflow.keras.models import Model, Sequential
+from keras.models import Model, Sequential
 import numpy as np
 import gin
 

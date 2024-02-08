@@ -1,10 +1,11 @@
 """Loss functions
 """
 import tensorflow as tf
+from tensorflow import keras
 import tensorflow_probability as tfp
-import tensorflow.keras.losses as kloss
+import keras.losses as kloss
 from concise.utils.helper import get_from_module
-import tensorflow.keras.backend as K
+import keras.backend as K
 import gin
 from gin import config
 

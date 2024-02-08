@@ -7,7 +7,8 @@ import gdown
 from bpnet.cli.train import bpnet_train
 from bpnet.cli.contrib import bpnet_contrib
 import gin
-import tensorflow.keras.backend as K
+from tensorflow import keras
+import keras.backend as K
 
 
 @fixture(scope='session')
