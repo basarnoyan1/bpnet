@@ -1,5 +1,5 @@
 import keras.layers as kl
-from keras.engine.topology import Layer
+from tensorflow.keras.layers import Layer
 import tensorflow as tf
 from concise.utils.helper import get_from_module
 from concise.layers import SplineWeight1D
