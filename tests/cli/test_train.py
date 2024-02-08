@@ -7,7 +7,7 @@ from pathlib import Path
 from bpnet.seqmodel import SeqModel
 from concise.preprocessing import encodeDNA
 import gin
-import keras.backend as K
+import tensorflow.keras.backend as K
 
 
 def test_output_files(trained_model):
