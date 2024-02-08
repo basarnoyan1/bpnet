@@ -1,11 +1,11 @@
 import os
 from kipoi_utils.data_utils import get_dataset_item, numpy_collate_concat
 from kipoi_utils.utils import unique_list
-import keras.backend as K
+import tensorflow.keras.backend as K
 import matplotlib.ticker as ticker
 from bpnet.functions import softmax
 from genomelake.extractors import FastaExtractor
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 from collections import OrderedDict
 from bpnet.plot.tracks import plot_tracks, filter_tracks
 from bpnet.extractors import extract_seq
