@@ -3,9 +3,9 @@
 import numpy as np
 from bpnet.utils import dict_prefix_key
 from bpnet.metrics import ClassificationMetrics, RegressionMetrics
-import keras.backend as K
 import tensorflow as tf
-import keras.layers as kl
+import tensorflow.keras.backend as K
+import tensorflow.keras.layers as kl
 import gin
 import os
 import abc
