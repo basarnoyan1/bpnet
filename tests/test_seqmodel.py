@@ -3,7 +3,7 @@
 from bpnet.seqmodel import SeqModel
 from bpnet.heads import ScalarHead, BinaryClassificationHead, ProfileHead
 import numpy as np
-from tensorflow import keras
+import keras
 import keras.layers as kl
 
 

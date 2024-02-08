@@ -7,7 +7,7 @@ import gdown
 from bpnet.cli.train import bpnet_train
 from bpnet.cli.contrib import bpnet_contrib
 import gin
-from tensorflow import keras
+import keras
 import keras.backend as K
 
 

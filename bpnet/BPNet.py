@@ -1,7 +1,7 @@
 import os
 from kipoi_utils.data_utils import get_dataset_item, numpy_collate_concat
 from kipoi_utils.utils import unique_list
-from tensorflow import keras
+import keras
 import keras.backend as K
 import matplotlib.ticker as ticker
 from bpnet.functions import softmax

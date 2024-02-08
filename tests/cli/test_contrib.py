@@ -2,7 +2,7 @@
 """
 import pytest
 from bpnet.cli.contrib import bpnet_contrib, ContribFile
-from tensorflow import keras
+import keras
 import keras.backend as K
 
 

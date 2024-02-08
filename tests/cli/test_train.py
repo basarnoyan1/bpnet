@@ -7,7 +7,7 @@ from pathlib import Path
 from bpnet.seqmodel import SeqModel
 from concise.preprocessing import encodeDNA
 import gin
-from tensorflow import keras
+import keras
 import keras.backend as K
 
 

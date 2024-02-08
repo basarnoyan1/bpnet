@@ -1,5 +1,5 @@
 import numpy as np
-from tensorflow import keras
+import keras
 import keras.layers as kl
 from keras.optimizers import Adam
 from keras.models import Model

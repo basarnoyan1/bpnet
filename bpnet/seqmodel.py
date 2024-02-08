@@ -3,7 +3,7 @@
 from tqdm import tqdm
 import os
 import tensorflow as tf
-from tensorflow import keras
+import keras
 from keras.optimizers import Adam
 from collections import OrderedDict, defaultdict
 from copy import deepcopy

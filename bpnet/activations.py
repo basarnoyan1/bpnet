@@ -1,4 +1,4 @@
-from tensorflow import keras
+import keras
 import keras.backend as K
 import keras.layers as kl
 from concise.utils.helper import get_from_module
