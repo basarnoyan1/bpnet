@@ -1,6 +1,6 @@
 from kipoi_utils.external.flatten_json import flatten
 from bpnet.utils import write_json, dict_prefix_key
-from keras.callbacks import EarlyStopping, CSVLogger, TensorBoard
+from tensorflow.keras.callbacks import EarlyStopping, CSVLogger, TensorBoard
 from collections import OrderedDict
 import os
 import gin
