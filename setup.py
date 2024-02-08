@@ -75,7 +75,7 @@ test_requirements = [
 ]
 
 dependency_links = [
-    "deepexplain @ git+https://github.com/kundajelab/DeepExplain.git@#egg=deepexplain"
+    "deepexplain@git+https://github.com/kundajelab/DeepExplain.git@#egg=deepexplain"
 ]
 
 
