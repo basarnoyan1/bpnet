@@ -90,8 +90,18 @@ def write_pkl(obj, fname, create_dirs=True, protocol=2):
 
 
 def read_pkl(fname):
-    import cloudpickle
-    return cloudpickle.load(open(fname, 'rb'))
+    import pickle
+    class CustomUnpickler(pickle.Unpickler):
+        def find_class(self, module, name):
+            if module.startswith("keras.engine"):
+                if module.startswith("keras.engine.training"):
+                    module = module.replace("keras.engine.training", "tensorflow.keras.models")   
+            return super().find_class(module, name)
+    return CustomUnpickler(open(fname, 'rb')).load()
+    
+    #Old
+    #import cloudpickle
+    #return cloudpickle.load(open(fname, 'rb'))
 
 
 def read_json(fname):
