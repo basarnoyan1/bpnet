@@ -49,7 +49,7 @@ def bpnet_model(tasks,
       p_splines: number of splines to use in the profile regression output head (0=None)
       merge_profile_reg: if True, total count and profile prediction will be part of
         a single profile output head
-      lr: learning rate of the Adam optimizer
+      lr: learning rate of the  optimizer
       padding: padding in the convolutional layers
       batchnorm: if True, add Batchnorm after every layer. Note: this may mess up the
         DeepLIFT contribution scores downstream
@@ -167,7 +167,7 @@ def bpnet_model(tasks,
                            skip_type=skip_type),
         heads=heads,
         tasks=tasks,
-        optimizer=Adam(lr=lr),
+        optimizer=Adam(learning_rate=lr),
         seqlen=seqlen,
     )
     return m
@@ -205,7 +205,7 @@ def binary_seq_model(tasks,
         body=net_body,
         heads=heads,
         tasks=tasks,
-        optimizer=Adam(lr=lr),
+        optimizer=Adam(learning_rate=lr),
         seqlen=seqlen,
     )
     return m
