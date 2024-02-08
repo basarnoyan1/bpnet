@@ -2,7 +2,7 @@
 """
 import pytest
 from bpnet.cli.contrib import bpnet_contrib, ContribFile
-import keras.backend as K
+import tensorflow.keras.backend as K
 
 
 @pytest.mark.parametrize("method", ['deeplift', 'grad'])
