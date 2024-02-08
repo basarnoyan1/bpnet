@@ -17,7 +17,7 @@ from . import losses
 from . import activations
 from . import cli
 
-from keras.utils.generic_utils import get_custom_objects
+from tensorflow.keras.utils import get_custom_objects
 custom_objects_modules = [losses, activations]
 for mod in custom_objects_modules:
     for f in mod.AVAILABLE:
