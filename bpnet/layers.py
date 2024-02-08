@@ -3,7 +3,7 @@ from tensorflow.keras.layers import Layer
 import tensorflow as tf
 from concise.utils.helper import get_from_module
 from concise.layers import SplineWeight1D
-from keras.models import Model, Sequential
+from tensorflow.keras.models import Model, Sequential
 import numpy as np
 import gin
 
