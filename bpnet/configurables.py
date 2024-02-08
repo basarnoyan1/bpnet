@@ -5,7 +5,7 @@ import gin
 import modisco
 import modisco.tfmodisco_workflow.workflow
 from gin import config
-import keras
+from tensorflow import keras
 
 # keras.optimizers
 config.external_configurable(keras.optimizers.Adam, module='keras.optimizers')

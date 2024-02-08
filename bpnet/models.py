@@ -1,5 +1,5 @@
 import numpy as np
-import keras
+from tensorflow import keras
 import keras.layers as kl
 from keras.optimizers import Adam
 from keras.models import Model
@@ -7,8 +7,6 @@ from concise.utils.helper import get_from_module
 import bpnet
 import bpnet.losses as blosses
 import gin
-import keras
-
 
 # TODO - setup the following model as a simple bpnet (?)
 

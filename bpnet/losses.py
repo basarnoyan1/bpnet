@@ -1,7 +1,7 @@
 """Loss functions
 """
 import tensorflow as tf
-import keras
+from tensorflow import keras
 import tensorflow_probability as tfp
 import keras.losses as kloss
 from concise.utils.helper import get_from_module

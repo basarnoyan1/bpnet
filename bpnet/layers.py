@@ -1,4 +1,4 @@
-import keras
+from tensorflow import keras
 import keras.layers as kl
 from keras.layers import Layer
 import tensorflow as tf
