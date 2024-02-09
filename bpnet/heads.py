@@ -154,14 +154,14 @@ class ScalarHead(BaseHeadWBias):
 
     def get_preact_tensor(self, graph=None):
         if graph is None:
-            graph = tf.get_default_graph()
+            graph = tf.compat.v1.get_default_graph()
         return graph.get_tensor_by_name(self.pre_act)
 
     def intp_tensors(self, preact_only=False, graph=None):
         """Return the required interpretation tensors
         """
         if graph is None:
-            graph = tf.get_default_graph()
+            graph = tf.compat.v1.get_default_graph()
 
         if self.activation is None:
             # the post-activation doesn't
@@ -298,7 +298,7 @@ class ProfileHead(BaseHeadWBias):
 
     def get_preact_tensor(self, graph=None):
         if graph is None:
-            graph = tf.get_default_graph()
+            graph = tf.compat.v1.get_default_graph()
         return graph.get_tensor_by_name(self.pre_act)
 
     @staticmethod
@@ -316,7 +316,7 @@ class ProfileHead(BaseHeadWBias):
 
         # Normalized contribution  - # TODO - update with tensorflow
         wn = kl.Lambda(lambda p:
-                       K.mean(K.sum(K.stop_gradient(tf.nn.softmax(p, dim=-2)) * p, axis=-2), axis=-1)
+                       K.mean(K.sum(K.stop_gradient(tf.nn.softmax(p, axis=-2)) * p, axis=-2), axis=-1)
                        )(p)
 
         # Squared weight
@@ -348,7 +348,7 @@ class ProfileHead(BaseHeadWBias):
             we should return a single scalar here
         """
         if graph is None:
-            graph = tf.get_default_graph()
+            graph = tf.compat.v1.get_default_graph()
 
         preact = graph.get_tensor_by_name(self.pre_act)
         postact = graph.get_tensor_by_name(self.post_act)

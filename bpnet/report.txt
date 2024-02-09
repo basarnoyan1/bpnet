@@ -1,0 +1,21 @@
+TensorFlow 2.0 Upgrade Script
+-----------------------------
+Converted 1 files
+Detected 0 issues that require attention
+--------------------------------------------------------------------------------
+================================================================================
+Detailed log follows:
+
+================================================================================
+--------------------------------------------------------------------------------
+Processing file 'heads.py'
+ outputting to 'heads.py'
+--------------------------------------------------------------------------------
+
+157:20: INFO: Renamed 'tf.get_default_graph' to 'tf.compat.v1.get_default_graph'
+164:20: INFO: Renamed 'tf.get_default_graph' to 'tf.compat.v1.get_default_graph'
+301:20: INFO: Renamed 'tf.get_default_graph' to 'tf.compat.v1.get_default_graph'
+319:69: INFO: Renamed keyword argument for tf.nn.softmax from dim to axis
+351:20: INFO: Renamed 'tf.get_default_graph' to 'tf.compat.v1.get_default_graph'
+--------------------------------------------------------------------------------
+
