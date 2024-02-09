@@ -1,21 +1,22 @@
 TensorFlow 2.0 Upgrade Script
 -----------------------------
 Converted 1 files
-Detected 0 issues that require attention
+Detected 1 issues that require attention
 --------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+File: seqmodel.py
+--------------------------------------------------------------------------------
+seqmodel.py:144:12: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
 ================================================================================
 Detailed log follows:
 
 ================================================================================
 --------------------------------------------------------------------------------
-Processing file 'heads.py'
- outputting to 'heads.py'
+Processing file 'seqmodel.py'
+ outputting to 'seqmodel.py'
 --------------------------------------------------------------------------------
 
-157:20: INFO: Renamed 'tf.get_default_graph' to 'tf.compat.v1.get_default_graph'
-164:20: INFO: Renamed 'tf.get_default_graph' to 'tf.compat.v1.get_default_graph'
-301:20: INFO: Renamed 'tf.get_default_graph' to 'tf.compat.v1.get_default_graph'
-319:69: INFO: Renamed keyword argument for tf.nn.softmax from dim to axis
-351:20: INFO: Renamed 'tf.get_default_graph' to 'tf.compat.v1.get_default_graph'
+91:20: INFO: Renamed 'tf.get_default_graph' to 'tf.compat.v1.get_default_graph'
+144:12: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
 --------------------------------------------------------------------------------
 

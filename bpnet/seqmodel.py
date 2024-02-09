@@ -88,7 +88,7 @@ class SeqModel:
 
     def get_bottleneck_tensor(self, graph=None):
         if graph is None:
-            graph = tf.get_default_graph()
+            graph = tf.compat.v1.get_default_graph()
         return graph.get_tensor_by_name(self.bottleneck_name)
 
     def bottleneck_model(self):
@@ -141,7 +141,7 @@ class SeqModel:
 
         self.contrib_fns = {}
         with tempfile.NamedTemporaryFile(suffix='.pkl') as temp:
-            self.model.save(temp.name)
+            self.model.save(temp.name, save_format="h5")
             K.clear_session()
             self.model = load_model(temp.name)
 
