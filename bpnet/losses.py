@@ -1,15 +1,14 @@
 """Loss functions
 """
-import tensorflow as tf
-from tensorflow import keras
-import tensorflow_probability as tfp
-import keras.losses as kloss
-from concise.utils.helper import get_from_module
-import keras.backend as K
+
 import gin
-from gin import config
+import tensorflow as tf
+import tensorflow.keras.backend as K
+import tensorflow.keras.losses as kloss
+import tensorflow_probability as tfp
+from concise.utils.helper import get_from_module
 
-
+tf.compat.v1.disable_eager_execution()
 @gin.configurable
 def multinomial_nll(true_counts, logits):
     """Compute the multinomial negative log-likelihood along the sequence (axis=1)
@@ -25,8 +24,9 @@ def multinomial_nll(true_counts, logits):
 
     counts_per_example = tf.reduce_sum(true_counts_perm, axis=-1)
 
-    dist = tfp.distributions.Multinomial(total_count=counts_per_example,
-                                                logits=logits_perm)
+    dist = tfp.distributions.Multinomial(
+        total_count=counts_per_example, logits=logits_perm
+    )
 
     # Normalize by batch size. One could also normalize by
     # sequence length here.
@@ -48,8 +48,10 @@ class CountsMultinomialNLL:
         # multinomial loss
         multinomial_loss = multinomial_nll(true_counts, logits)
 
-        mse_loss = kloss.mse(K.log(1 + K.sum(true_counts, axis=(-2, -1))),
-                             K.log(1 + K.sum(preds, axis=(-2, -1))))
+        mse_loss = kloss.mse(
+            K.log(1 + K.sum(true_counts, axis=(-2, -1))),
+            K.log(1 + K.sum(preds, axis=(-2, -1))),
+        )
 
         return multinomial_loss + self.c_task_weight * mse_loss
 
@@ -70,8 +72,9 @@ class PoissonMultinomialNLL:
         # multinomial loss
         multinomial_loss = multinomial_nll(true_counts, logits)
 
-        poisson_loss = kloss.poisson(K.sum(true_counts, axis=(-2, -1)),
-                                     K.sum(preds, axis=(-2, -1)))
+        poisson_loss = kloss.poisson(
+            K.sum(true_counts, axis=(-2, -1)), K.sum(preds, axis=(-2, -1))
+        )
 
         return multinomial_loss + self.c_task_weight * poisson_loss
 
@@ -79,9 +82,7 @@ class PoissonMultinomialNLL:
         return {"c_task_weight": self.c_task_weight}
 
 
-AVAILABLE = ["multinomial_nll",
-             "CountsMultinomialNLL",
-             "PoissonMultinomialNLL"]
+AVAILABLE = ["multinomial_nll", "CountsMultinomialNLL", "PoissonMultinomialNLL"]
 
 
 def get(name):

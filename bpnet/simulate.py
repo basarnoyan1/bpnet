@@ -1,19 +1,16 @@
+import random
 from collections import OrderedDict
-from bpnet.plot.tracks import filter_tracks
-from bpnet.utils import flatten, unflatten
+
+import matplotlib.pyplot as plt
 import numpy as np
-from copy import deepcopy
 import pandas as pd
 from scipy.stats import entropy
-import random
-from concise.preprocessing import encodeDNA
-from bpnet.plot.tracks import plot_tracks
-from kipoi_utils.data_utils import get_dataset_item, numpy_collate_concat
-from bpnet.functions import mean, softmax
 from tqdm import tqdm
-from kipoi_utils.utils import unique_list
-import matplotlib.pyplot as plt
+
+from bpnet.functions import softmax
 from bpnet.modisco.core import Seqlet
+from bpnet.plot.tracks import plot_tracks
+from kipoi_utils.external.flatten_json import flatten, unflatten
 
 
 def motif_coords(motif, position):
@@ -34,7 +31,9 @@ def random_seq(seqlen):
     return ''.join(random.choices("ACGT", k=seqlen))
 
 
-def generate_seq(central_motif, side_motif=None, side_distances=[], seqlen=1000):
+def generate_seq(central_motif, side_motif=None, side_distances=None, seqlen=1000):
+    if side_distances is None:
+        side_distances = []
     random_seq = ''.join(random.choices("ACGT", k=seqlen))
     # mlen = len(central_motif)
 
@@ -71,12 +70,9 @@ def simmetric_kl(ref, alt):
 
 
 def profile_sim_metrics(ref, alt, pc=0):
-    d = {}
-    d['simmetric_kl'] = simmetric_kl(ref, alt).mean() - simmetric_kl(ref, ref).mean()
-    d['counts'] = alt.sum()
-    d['counts_frac'] = (alt.sum() + pc) / (ref.sum() + pc)
-    d['max'] = alt.max()
-    d['max_frac'] = (alt.max() + pc) / (ref.max() + pc)
+    d = {'simmetric_kl': simmetric_kl(ref, alt).mean() - simmetric_kl(ref, ref).mean(), 'counts': alt.sum(),
+         'counts_frac': (alt.sum() + pc) / (ref.sum() + pc), 'max': alt.max(),
+         'max_frac': (alt.max() + pc) / (ref.max() + pc)}
 
     max_idx = np.argmax(ref, axis=0)
     d['counts_max_ref'] = alt[max_idx, [0, 1]].sum()
@@ -107,7 +103,11 @@ def get_scores(ref_pred, alt_pred, tasks, motif, seqlen, center_coords):
 
 
 def generate_sim(bpnet, central_motif, side_motif, side_distances,
-                 center_coords=[450, 550], repeat=128, contribution=['count', 'profile'], correct=False):
+                 center_coords=None, repeat=128, contribution=None, correct=False):
+    if center_coords is None:
+        center_coords = [450, 550]
+    if contribution is None:
+        contribution = ['count', 'profile']
     outl = []
     tasks = bpnet.tasks
     seqlen = bpnet.input_seqlen()
@@ -275,7 +275,7 @@ def interactive_tracks(profiles, central_motif, side_motif, contrib_score='profi
                         seqlets,
                         title=dist, ylim=ylims)
         return fn
-    from ipywidgets import interact, interactive, fixed, interact_manual
+    from ipywidgets import interactive
     import ipywidgets as widgets
     positions, track = zip(*profiles)
     dist = [p - 500 for p in positions]
@@ -290,8 +290,8 @@ def interactive_tracks(profiles, central_motif, side_motif, contrib_score='profi
 def plot_motif_table(mr, motif_consensus):
     """Plot motif table
     """
-    from vdom import p, div, img
-    from bpnet.plot.vdom import fig2vdom, vdom_pssm
+    from vdom import div
+    from bpnet.plot.vdom import fig2vdom
     from bpnet.modisco.table import longer_pattern
     return div([fig2vdom(mr.plot_pssm(longer_pattern(pattern), trim_frac=0.08, title=f"{motif} ({pattern})"), height=80)
                 for motif, (pattern, motif_seq) in motif_consensus.items()])

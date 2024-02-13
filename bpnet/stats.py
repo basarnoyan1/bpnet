@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import entropy
 
 
 def fdr_threshold_norm_right(x, skip_percentile=99, fdr=0.1):
@@ -10,6 +9,8 @@ def fdr_threshold_norm_right(x, skip_percentile=99, fdr=0.1):
 
     Args:
       x: np.array with values of interest
+      skip_percentile:
+      fdr:
     """
     from statsmodels.stats.multitest import fdrcorrection
     from scipy.stats import norm
@@ -24,7 +25,7 @@ def fdr_threshold_norm_right(x, skip_percentile=99, fdr=0.1):
     return x[~keep].max()
 
 
-def quantile_norm(x, norm_x, step=0.01):
+def quantile_norm(x, norm_x):
     """Get the quantile values w.r.t. the other empirical distribution
 
     Args:
@@ -77,11 +78,11 @@ def perc(x):
 
 
 def ols_formula(df, dependent_var, *excluded_cols):
-    '''
+    """
     Generates the R style formula for statsmodels (patsy) given
     the dataframe, dependent variable and optional excluded columns
     as strings
-    '''
+    """
     df_columns = list(df.columns.values)
     df_columns.remove(dependent_var)
     for col in excluded_cols:

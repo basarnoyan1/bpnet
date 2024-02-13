@@ -1,17 +1,18 @@
-import numpy as np
-from kipoi_utils.external.torch.sampler import BatchSampler
 import collections
-from kipoi_utils.data_utils import (numpy_collate, numpy_collate_concat, get_dataset_item,
-                                    DataloaderIterable, batch_gen, get_dataset_lens, iterable_cycle)
-from copy import deepcopy
-from bpnet.utils import flatten, unflatten
 from collections import OrderedDict
-import pandas as pd
-from tqdm import tqdm
-from kipoi.writers import HDF5BatchWriter
-from kipoi.readers import HDF5Reader
+from copy import deepcopy
 
+import numpy as np
+import pandas as pd
 from kipoi.data import BaseDataLoader
+from kipoi.readers import HDF5Reader
+from kipoi.writers import HDF5BatchWriter
+from kipoi_utils.data_utils import (numpy_collate_concat, get_dataset_item, get_dataset_lens, iterable_cycle)
+from kipoi_utils.external.torch.sampler import BatchSampler
+from tqdm import tqdm
+
+from kipoi_utils.external.flatten_json import flatten, unflatten
+
 try:
     import torch
     from torch.utils.data import DataLoader
@@ -28,7 +29,7 @@ def to_numpy(data):
         return data
     if isinstance(data, torch.Tensor):
         return data.numpy()
-    elif isinstance(data, collections.Mapping):
+    elif isinstance(data, collections.abc.Mapping):
         return {key: to_numpy(data[key]) for key in data}
     elif isinstance(data, collections.Sequence):
         if isinstance(data[0], str):
@@ -237,7 +238,7 @@ class NumpyDataset(Dataset):
         """Aggregate across all tracks
 
         Args:
-          idx: subset index
+          #idx: subset index
         """
         return self.dapply(fn, axis=axis)
 

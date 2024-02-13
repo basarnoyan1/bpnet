@@ -1,12 +1,7 @@
-import numpy as np
-from tensorflow import keras
-import keras.layers as kl
-from keras.optimizers import Adam
-from keras.models import Model
-from concise.utils.helper import get_from_module
-import bpnet
-import bpnet.losses as blosses
 import gin
+from concise.utils.helper import get_from_module
+from keras.optimizers import Adam
+
 
 # TODO - setup the following model as a simple bpnet (?)
 
@@ -30,12 +25,16 @@ def bpnet_model(tasks,
                 n_bias_tracks=2,
                 profile_metric=None,
                 count_metric=None,
-                profile_bias_window_sizes=[1, 50],
+                profile_bias_window_sizes=None,
                 seqlen=None,
                 skip_type='residual'):
     """Setup the BPNet model architecture
 
     Args:
+      tracks_per_task:
+      profile_metric:
+      count_metric:
+      profile_bias_window_sizes:
       tasks: list of tasks
       filters: number of convolutional filters to use at each layer
       n_dil_layers: number of dilated convolutional filters to use
@@ -45,7 +44,7 @@ def bpnet_model(tasks,
       c_loss_weight: total count regression weight
       p_loss_weight: profile regression weight
       c_splines: number of splines to use in the binary classification output head
-      p_splines: number of splines to use in the profile regression output head (0=None)
+      b_splines: number of splines to use in the profile regression output head (0=None)
       merge_profile_reg: if True, total count and profile prediction will be part of
         a single profile output head
       lr: learning rate of the  optimizer
@@ -60,13 +59,14 @@ def bpnet_model(tasks,
     Returns:
       bpnet.seqmodel.SeqModel
     """
+    if profile_bias_window_sizes is None:
+        profile_bias_window_sizes = [1, 50]
     from bpnet.seqmodel import SeqModel
     from bpnet.layers import DilatedConv1D, DeConv1D, GlobalAvgPoolFCN, MovingAverages
     from bpnet.metrics import BPNetMetricSingleProfile, default_peak_pred_metric
     from bpnet.heads import ScalarHead, ProfileHead
     from bpnet.metrics import ClassificationMetrics, RegressionMetrics
     from bpnet.losses import multinomial_nll, CountsMultinomialNLL
-    import bpnet.losses as bloss
     from bpnet.activations import clipped_exp
     from bpnet.functions import softmax
 
@@ -190,7 +190,7 @@ def binary_seq_model(tasks,
 
     """
     from bpnet.seqmodel import SeqModel
-    from bpnet.heads import ScalarHead, ProfileHead
+    from bpnet.heads import ScalarHead
     from bpnet.metrics import ClassificationMetrics
     # Heads -------------------------------------------------
     heads = [ScalarHead(target_name='{task}/class',

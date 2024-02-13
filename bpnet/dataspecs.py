@@ -3,14 +3,16 @@ Schemas describing the following configuration YAML files: dataspec.yml
 """
 from __future__ import absolute_import
 from __future__ import print_function
-from copy import deepcopy
+
+import logging
 import os
 from collections import OrderedDict
+from copy import deepcopy
+
 import related
-from kipoi_utils.external.related.mixins import RelatedConfigMixin, RelatedLoadSaveMixin
-from kipoi_utils.external.related.fields import AnyField
 from kipoi_utils.external.related.fields import StrSequenceField
-import logging
+from kipoi_utils.external.related.mixins import RelatedConfigMixin, RelatedLoadSaveMixin
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 

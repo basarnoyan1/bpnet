@@ -1,20 +1,13 @@
-import sklearn.metrics as skm
 import logging
-import matplotlib.pyplot as plt
-from bpnet.utils import read_pkl
-from tensorflow import keras
-from keras.models import load_model
-from bpnet.utils import _listify, create_tf_session
-from bpnet.stats import permute_array
-from bpnet.functions import softmax, mean
-import os
-import json
-from tqdm import tqdm
-import matplotlib
-import pandas as pd
-import numpy as np
 from collections import OrderedDict
+
 import gin
+import numpy as np
+import pandas as pd
+import sklearn.metrics as skm
+
+from bpnet.functions import softmax, mean
+from bpnet.stats import permute_array
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -84,7 +77,7 @@ def eval_profile(yt, yp,
                  pos_min_threshold=0.05,
                  neg_max_threshold=0.01,
                  required_min_pos_counts=2.5,
-                 binsizes=[1, 2, 4, 10]):
+                 binsizes=None):
     """
     Evaluate the profile in terms of auPR
 
@@ -98,10 +91,13 @@ def eval_profile(yt, yp,
       required_min_pos_counts: smallest number of reads the peak should be
          supported by. All regions where 0.05 of the total reads would be
          less than required_min_pos_counts are excluded
+      binsizes:
     """
     # The filtering
     # criterion assures that each position in the positive class is
     # supported by at least required_min_pos_counts  of reads
+    if binsizes is None:
+        binsizes = [1, 2, 4, 10]
     do_eval = yt.sum(axis=1).mean(axis=1) > required_min_pos_counts / pos_min_threshold
 
     # make sure everything sums to one
@@ -214,10 +210,9 @@ class BPNetMetric:
 
         y_true, preds = self.postproc_fn(y_true, preds)
 
-        out = {}
-        out["counts"] = {task: self.count_metric(y_true['counts'][task],
-                                                 preds['counts'][task])
-                         for task in self.tasks}
+        out = {"counts": {task: self.count_metric(y_true['counts'][task],
+                                                  preds['counts'][task])
+                          for task in self.tasks}}
         out["counts"]['avg'] = average_counts(out["counts"])
 
         out["avg"] = {"counts": out["counts"]['avg']}  # new system compatibility
@@ -240,7 +235,6 @@ class BPNetMetricSingleProfile:
         """
 
         Args:
-          tasks: tasks
           count_metric: count evaluation metric
           profile_metric: profile evaluation metric
         """
@@ -250,11 +244,10 @@ class BPNetMetricSingleProfile:
 
     def __call__(self, y_true, preds):
         # extract the profile and count predictions
-        out = {}
+        out = {"counts": self.count_metric(np.log(1 + y_true.sum(axis=(-2, -1))),
+                                           np.log(1 + preds.sum(axis=(-2, -1))))}
 
         # sum across positions + strands
-        out["counts"] = self.count_metric(np.log(1 + y_true.sum(axis=(-2, -1))),
-                                          np.log(1 + preds.sum(axis=(-2, -1))))
 
         if self.profile_metric is not None:
             out["profile"] = self.profile_metric(y_true, preds)
@@ -267,8 +260,10 @@ class PeakPredictionProfileMetric:
     def __init__(self, pos_min_threshold=0.05,
                  neg_max_threshold=0.01,
                  required_min_pos_counts=2.5,
-                 binsizes=[1, 10]):
+                 binsizes=None):
 
+        if binsizes is None:
+            binsizes = [1, 10]
         self.pos_min_threshold = pos_min_threshold
         self.neg_max_threshold = neg_max_threshold
         self.required_min_pos_counts = required_min_pos_counts
@@ -385,10 +380,10 @@ class MetricsMultiTask:
 class MetricsAggregated:
 
     def __init__(self,
-                 metrics,
-                 agg_fn={"mean": np.mean, "std": np.std},
+                 agg_fn=None,
                  prefix=""):
-        self.metrics
+        if agg_fn is None:
+            agg_fn = {"mean": np.mean, "std": np.std}
         self.agg_fn = agg_fn
         self.prefix = prefix
 
@@ -439,17 +434,17 @@ def _mask_value_nan(y_true, y_pred, mask=MASK_VALUE):
 
 
 @gin.configurable
-def n_positive(y_true, y_pred):
+def n_positive(y_true):
     return y_true.sum()
 
 
 @gin.configurable
-def n_negative(y_true, y_pred):
+def n_negative(y_true):
     return (1 - y_true).sum()
 
 
 @gin.configurable
-def frac_positive(y_true, y_pred):
+def frac_positive(y_true):
     return y_true.mean()
 
 

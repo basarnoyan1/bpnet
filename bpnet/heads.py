@@ -1,15 +1,18 @@
 """Head modules
 """
-import numpy as np
-from bpnet.utils import dict_prefix_key
-from bpnet.metrics import ClassificationMetrics, RegressionMetrics
-from tensorflow import keras
-import keras.backend as K
-import tensorflow as tf
-import keras.layers as kl
-import gin
-import os
+
 import abc
+
+import gin
+import numpy as np
+import tensorflow as tf
+import tensorflow.keras.backend as K
+import tensorflow.keras.layers as kl
+
+from bpnet.metrics import ClassificationMetrics, RegressionMetrics
+from bpnet.utils import dict_prefix_key
+
+tf.compat.v1.disable_eager_execution()
 
 
 class BaseHead:
@@ -33,8 +36,7 @@ class BaseHead:
 
     @abc.abstractmethod
     def get_preact_tensor(self, graph=None):
-        """Return the single pre-activation tensors
-        """
+        """Return the single pre-activation tensors"""
         pass
 
     @abc.abstractmethod
@@ -44,22 +46,9 @@ class BaseHead:
         """
         raise NotImplementedError
 
-    # @abc.abstractmethod
-    # def get_intp_tensor(self, which=None):
-    #     """Returns a target tensor which is a scalar
-    #     w.r.t. to which to compute the outputs
-
-    #     Args:
-    #       which [string]: If None, use the default
-    #       **kwargs: optional kwargs for the interpretation method
-
-    #     Returns:
-    #       scalar tensor
-    #     """
-    #     raise NotImplementedError
-
     def copy(self):
         from copy import deepcopy
+
         return deepcopy(self)
 
 
@@ -85,22 +74,25 @@ def named_tensor(x, name):
 # --------------------------------------------
 # Head implementations
 
+
 @gin.configurable
 class ScalarHead(BaseHeadWBias):
 
-    def __init__(self, target_name,  # "{task}/scalar"
-                 net,  # function that takes a keras tensor and returns a keras tensor
-                 activation=None,
-                 loss='mse',
-                 loss_weight=1,
-                 metric=RegressionMetrics(),
-                 postproc_fn=None,  # post-processing to apply so that we are in the right scale
-                 # bias input
-                 use_bias=False,
-                 bias_net=None,
-                 bias_input='bias/{task}/scalar',
-                 bias_shape=(1,),
-                 ):
+    def __init__(
+        self,
+        target_name,  # "{task}/scalar"
+        net,  # function that takes a keras tensor and returns a keras tensor
+        activation=None,
+        loss="mse",
+        loss_weight=1,
+        metric=RegressionMetrics(),
+        postproc_fn=None,  # post-processing to apply so that we are in the right scale
+        # bias input
+        use_bias=False,
+        bias_net=None,
+        bias_input="bias/{task}/scalar",
+        bias_shape=(1,),
+    ):
         self.net = net
         self.loss = loss
         self.loss_weight = loss_weight
@@ -158,8 +150,7 @@ class ScalarHead(BaseHeadWBias):
         return graph.get_tensor_by_name(self.pre_act)
 
     def intp_tensors(self, preact_only=False, graph=None):
-        """Return the required interpretation tensors
-        """
+        """Return the required interpretation tensors"""
         if graph is None:
             graph = tf.compat.v1.get_default_graph()
 
@@ -172,8 +163,10 @@ class ScalarHead(BaseHeadWBias):
         if preact_only:
             return {"pre-act": graph.get_tensor_by_name(self.pre_act)}
         else:
-            return {"pre-act": graph.get_tensor_by_name(self.pre_act),
-                    "output": graph.get_tensor_by_name(self.post_act)}
+            return {
+                "pre-act": graph.get_tensor_by_name(self.pre_act),
+                "output": graph.get_tensor_by_name(self.post_act),
+            }
 
     # def get_intp_tensor(self, which='pre-act'):
     #     return self.intp_tensors()[which]
@@ -186,38 +179,41 @@ class ScalarHead(BaseHeadWBias):
 
         Return: (k, v) tuple
         """
-        shape = tuple([x if x is not None else seqlen
-                       for x in self.bias_shape])
-        return (self.get_bias_input(task), np.zeros((length, ) + shape))
+        shape = tuple([x if x is not None else seqlen for x in self.bias_shape])
+        return self.get_bias_input(task), np.zeros((length,) + shape)
 
 
 @gin.configurable
 class BinaryClassificationHead(ScalarHead):
 
-    def __init__(self, target_name,  # "{task}/scalar"
-                 net,  # function that takes a keras tensor and returns a keras tensor
-                 activation='sigmoid',
-                 loss='binary_crossentropy',
-                 loss_weight=1,
-                 metric=ClassificationMetrics(),
-                 postproc_fn=None,
-                 # bias input
-                 use_bias=False,
-                 bias_net=None,
-                 bias_input='bias/{task}/scalar',
-                 bias_shape=(1,),
-                 ):
+    def __init__(
+        self,
+        target_name,  # "{task}/scalar"
+        net,  # function that takes a keras tensor and returns a keras tensor
+        activation="sigmoid",
+        loss="binary_crossentropy",
+        loss_weight=1,
+        metric=ClassificationMetrics(),
+        postproc_fn=None,
+        # bias input
+        use_bias=False,
+        bias_net=None,
+        bias_input="bias/{task}/scalar",
+        bias_shape=(1,),
+    ):
         # override the default
-        super().__init__(target_name,
-                         net,
-                         activation=activation,
-                         loss=loss,
-                         metric=metric,
-                         postproc_fn=postproc_fn,
-                         use_bias=use_bias,
-                         bias_net=bias_net,
-                         bias_input=bias_input,
-                         bias_shape=bias_shape)
+        super().__init__(
+            target_name,
+            net,
+            activation=activation,
+            loss=loss,
+            metric=metric,
+            postproc_fn=postproc_fn,
+            use_bias=use_bias,
+            bias_net=bias_net,
+            bias_input=bias_input,
+            bias_shape=bias_shape,
+        )
 
         # TODO - mabye override the way we call outputs?
 
@@ -232,19 +228,21 @@ class ProfileHead(BaseHeadWBias):
     as well as positions
     """
 
-    def __init__(self, target_name,  # "{task}/profile"
-                 net,  # function that takes a keras tensor and returns a keras tensor
-                 activation=None,
-                 loss='mse',
-                 loss_weight=1,
-                 metric=RegressionMetrics(),
-                 postproc_fn=None,
-                 # bias input
-                 use_bias=False,
-                 bias_net=None,
-                 bias_input='bias/{task}/profile',
-                 bias_shape=(None, 1),
-                 ):
+    def __init__(
+        self,
+        target_name,  # "{task}/profile"
+        net,  # function that takes a keras tensor and returns a keras tensor
+        activation=None,
+        loss="mse",
+        loss_weight=1,
+        metric=RegressionMetrics(),
+        postproc_fn=None,
+        # bias input
+        use_bias=False,
+        bias_net=None,
+        bias_input="bias/{task}/profile",
+        bias_shape=(None, 1),
+    ):
         self.net = net
         self.loss = loss
         self.loss_weight = loss_weight
@@ -315,31 +313,23 @@ class ProfileHead(BaseHeadWBias):
         # to be able to do Model(inp, outputs) in deep-explain code
 
         # Normalized contribution  - # TODO - update with tensorflow
-        wn = kl.Lambda(lambda p:
-                       K.mean(K.sum(K.stop_gradient(tf.nn.softmax(p, axis=-2)) * p, axis=-2), axis=-1)
-                       )(p)
+        wn = kl.Lambda(
+            lambda p: K.mean(
+                K.sum(K.stop_gradient(tf.nn.softmax(p, axis=-2)) * p, axis=-2), axis=-1
+            )
+        )(p)
 
         # Squared weight
-        w2 = kl.Lambda(lambda p:
-                       K.mean(K.sum(p * p, axis=-2), axis=-1)
-                       )(p)
+        w2 = kl.Lambda(lambda p: K.mean(K.sum(p * p, axis=-2), axis=-1))(p)
 
         # W1 weight
-        w1 = kl.Lambda(lambda preact_m:
-                       K.mean(K.sum(preact_m, axis=-2), axis=-1)
-                       )(p)
+        w1 = kl.Lambda(lambda preact_m: K.mean(K.sum(preact_m, axis=-2), axis=-1))(p)
 
         # Winf
         # 1. max across the positional axis, average the strands
-        winf = kl.Lambda(lambda p:
-                         K.mean(K.max(p, axis=-2), axis=-1)
-                         )(p)
+        winf = kl.Lambda(lambda p: K.mean(K.max(p, axis=-2), axis=-1))(p)
 
-        return {"wn": wn,
-                "w1": w1,
-                "w2": w2,
-                "winf": winf
-                }
+        return {"wn": wn, "w1": w1, "w2": w2, "winf": winf}
 
     def intp_tensors(self, preact_only=False, graph=None):
         """Return the required interpretation tensors (scalars)
@@ -355,7 +345,7 @@ class ProfileHead(BaseHeadWBias):
 
         # Contruct the profile summary ops
         preact_tensors = self.profile_contrib(preact)
-        postact_tensors = dict_prefix_key(self.profile_contrib(postact), 'output_')
+        postact_tensors = dict_prefix_key(self.profile_contrib(postact), "output_")
 
         if self.activation is None:
             # the post-activation doesn't
@@ -379,6 +369,5 @@ class ProfileHead(BaseHeadWBias):
 
         Return: (k, v) tuple
         """
-        shape = tuple([x if x is not None else seqlen
-                       for x in self.bias_shape])
-        return (self.get_bias_input(task), np.zeros((length, ) + shape))
+        shape = tuple([x if x is not None else seqlen for x in self.bias_shape])
+        return self.get_bias_input(task), np.zeros((length,) + shape)

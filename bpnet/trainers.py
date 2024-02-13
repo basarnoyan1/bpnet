@@ -1,12 +1,10 @@
 from kipoi_utils.external.flatten_json import flatten
 from bpnet.utils import write_json, dict_prefix_key
-from tensorflow import keras
-from keras.callbacks import EarlyStopping, CSVLogger, TensorBoard
+from tensorflow.keras.callbacks import EarlyStopping, CSVLogger, TensorBoard
 from collections import OrderedDict
 import os
 import gin
 import pandas as pd
-from tqdm import tqdm
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,8 +18,8 @@ class SeqModelTrainer:
         """
         Args:
           model: compiled keras.Model
-          train: training Dataset (object inheriting from kipoi.data.Dataset)
-          valid: validation Dataset (object inheriting from kipoi.data.Dataset)
+          train_dataset: training Dataset (object inheriting from kipoi.data.Dataset)
+          valid_dataset: validation Dataset (object inheriting from kipoi.data.Dataset)
           output_dir: output directory where to log the training
           cometml_experiment: if not None, append logs to commetml
         """
@@ -63,7 +61,7 @@ class SeqModelTrainer:
         Args:
           batch_size:
           epochs:
-          patience: early stopping patience
+          early_stop_patience: early stopping patience
           num_workers: how many workers to use in parallel
           train_epoch_frac: if smaller than 1, then make the epoch shorter
           valid_epoch_frac: same as train_epoch_frac for the validation dataset
@@ -141,7 +139,7 @@ class SeqModelTrainer:
         except FileNotFoundError as e:
             logger.warning(e)
 
-    def evaluate(self, metric, batch_size=256, num_workers=8, eval_train=False, eval_skip=[], save=True, **kwargs):
+    def evaluate(self, metric, batch_size=256, num_workers=8, eval_train=False, eval_skip=None, save=True, **kwargs):
         """Evaluate the model on the validation set
         Args:
           metric: a function accepting (y_true, y_pred) and returning the evaluation metric(s)
@@ -150,8 +148,10 @@ class SeqModelTrainer:
           eval_train: if True, also compute the evaluation metrics on the training set
           save: save the json file to the output directory
         """
+        if eval_skip is None:
+            eval_skip = []
         if len(kwargs) > 0:
-            logger.warn(f"Extra kwargs were provided to trainer.evaluate(): {kwargs}")
+            logger.warning(f"Extra kwargs were provided to trainer.evaluate(): {kwargs}")
         # Save the complete model -> HACK
         self.seq_model.save(os.path.join(self.output_dir, 'seq_model.pkl'))
 
@@ -167,7 +167,7 @@ class SeqModelTrainer:
                 logger.info(f"Using eval_skip: {eval_skip}")
                 eval_datasets = [(k, v) for k, v in eval_datasets if k not in eval_skip]
         except Exception:
-            logger.warn(f"eval datasets don't contain tuples. Unable to skip them using {eval_skip}")
+            logger.warning(f"eval datasets don't contain tuples. Unable to skip them using {eval_skip}")
 
         metric_res = OrderedDict()
         for d in eval_datasets:

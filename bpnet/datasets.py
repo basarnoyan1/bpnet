@@ -1,48 +1,36 @@
-import pandas as pd
-import numpy as np
-from copy import deepcopy
-import json
-from pathlib import Path
-from kipoi.data import Dataset
-# try:
-# import torch
-# from bpnet.data import Dataset
-# torch.multiprocessing.set_sharing_strategy('file_system')
-# except:
-#     print("PyTorch not installed. Using Dataset from kipoi.data")
-#    from kipoi.data import Dataset
-
-from kipoi.metadata import GenomicRanges
-from bpnet.utils import to_list
-from bpnet.dataspecs import DataSpec
-from bpnet.preproc import bin_counts, keep_interval, moving_average, IntervalAugmentor
-from bpnet.extractors import _chrom_sizes, _chrom_names
-from concise.utils.helper import get_from_module
-from tqdm import tqdm
-from concise.preprocessing import encodeDNA
-from random import Random
-import joblib
-from bpnet.preproc import resize_interval
-from genomelake.extractors import FastaExtractor, BigwigExtractor, ArrayExtractor
-from kipoi_utils.data_utils import get_dataset_item
-from kipoiseq.dataloaders.sequence import BedDataset
-import gin
 import logging
+from copy import deepcopy
+
+import gin
+import numpy as np
+import pandas as pd
+from concise.utils.helper import get_from_module
+from genomelake.extractors import FastaExtractor, BigwigExtractor
+from kipoi.data import Dataset
+from kipoi.metadata import GenomicRanges
+
+from bpnet.dataspecs import DataSpec
+from bpnet.extractors import _chrom_sizes, _chrom_names
+from bpnet.preproc import IntervalAugmentor
+from bpnet.preproc import resize_interval
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
 class TsvReader:
-    def __init__(self, tsv_file,
-                 num_chr=False,
-                 label_dtype=None,
-                 mask_ambigous=None,
-                 # task_prefix='task/',
-                 incl_chromosomes=None,
-                 excl_chromosomes=None,
-                 chromosome_lens=None,
-                 resize_width=None
-                 ):
+    def __init__(
+        self,
+        tsv_file,
+        num_chr=False,
+        label_dtype=None,
+        mask_ambigous=None,
+        # task_prefix='task/',
+        incl_chromosomes=None,
+        excl_chromosomes=None,
+        chromosome_lens=None,
+        resize_width=None,
+    ):
         """Reads a tsv/BED file in the following format:
         chr  start  stop  [task1  task2 ... ]
 
@@ -68,7 +56,7 @@ class TsvReader:
         self.chromosome_lens = chromosome_lens
         self.resize_width = resize_width
 
-        columns = list(pd.read_csv(self.tsv_file, nrows=0, sep='\t').columns)
+        columns = list(pd.read_csv(self.tsv_file, nrows=0, sep="\t").columns)
 
         if not columns[0].startswith("CHR") and not columns[0].startswith("#CHR"):
             # No classes were provided
@@ -82,12 +70,14 @@ class TsvReader:
             skiprows = [0]
             # self.tasknames = [c.replace(task_prefix, "") for c in columns if task_prefix in c]
 
-        df_peek = pd.read_csv(self.tsv_file,
-                              header=None,
-                              nrows=1,
-                              skiprows=skiprows,
-                              comment='#',
-                              sep='\t')
+        df_peek = pd.read_csv(
+            self.tsv_file,
+            header=None,
+            nrows=1,
+            skiprows=skiprows,
+            comment="#",
+            sep="\t",
+        )
         self.n_tasks = df_peek.shape[1] - 3
         assert self.n_tasks >= 0
 
@@ -98,14 +88,21 @@ class TsvReader:
         if self.label_dtype is None:
             dtypes = {i: d for i, d in enumerate([str, int, int])}
         else:
-            dtypes = {i: d for i, d in enumerate([str, int, int] + [self.label_dtype] * self.n_tasks)}
+            dtypes = {
+                i: d
+                for i, d in enumerate(
+                    [str, int, int] + [self.label_dtype] * self.n_tasks
+                )
+            }
 
-        self.df = pd.read_csv(self.tsv_file,
-                              header=None,
-                              comment='#',
-                              skiprows=skiprows,
-                              dtype=dtypes,
-                              sep='\t')
+        self.df = pd.read_csv(
+            self.tsv_file,
+            header=None,
+            comment="#",
+            skiprows=skiprows,
+            dtype=dtypes,
+            sep="\t",
+        )
         if self.num_chr and self.df.iloc[0][0].startswith("chr"):
             self.df[0] = self.df[0].str.replace("^chr", "")
         if not self.num_chr and not self.df.iloc[0][0].startswith("chr"):
@@ -128,18 +125,24 @@ class TsvReader:
         if self.chromosome_lens is not None:
             n_int = len(self.df)
             center = (self.df[1] + self.df[2]) // 2
-            valid_seqs = ((center > self.resize_width // 2 + 1) &
-                          (center < self.df[0].map(chromosome_lens).astype(int) - self.resize_width // 2 - 1))
+            valid_seqs = (center > self.resize_width // 2 + 1) & (
+                center
+                < self.df[0].map(chromosome_lens).astype(int)
+                - self.resize_width // 2
+                - 1
+            )
             self.df = self.df[valid_seqs]
 
             if len(self.df) != n_int:
-                print(f"Skipped {n_int - len(self.df)} intervals"
-                      " outside of the genome size")
+                print(
+                    f"Skipped {n_int - len(self.df)} intervals"
+                    " outside of the genome size"
+                )
 
     def __getitem__(self, idx):
-        """Returns (pybedtools.Interval, labels)
-        """
+        """Returns (pybedtools.Interval, labels)"""
         from pybedtools import Interval
+
         # TODO - speedup using: iat[idx, .]
         # interval = Interval(self.dfm.iat[idx, 0],  # chrom
         #                     self.dfm.iat[idx, 1],  # start
@@ -165,14 +168,12 @@ class TsvReader:
         return self.df.iloc[:, 3:].values.astype(self.label_dtype)
 
     def shuffle_inplace(self):
-        """Shuffle the interval
-        """
+        """Shuffle the interval"""
         self.df = self.df.sample(frac=1)
 
     @classmethod
     def concat(self, tsv_datasets):
-        """Concatenate multiple objects
-        """
+        """Concatenate multiple objects"""
         for ds in tsv_datasets:
             assert ds.get_target_names() == tsv_datasets[0].get_target_names()
         obj = deepcopy(tsv_datasets[0])
@@ -188,18 +189,19 @@ class TsvReader:
 
 
 def _run_extractors(extractors, intervals, sum_tracks=False):
-    """Helper function for StrandedProfile
-    """
+    """Helper function for StrandedProfile"""
     if sum_tracks:
-        out = sum([np.abs(ex(intervals, nan_as_zero=True))
-                   for ex in extractors])[..., np.newaxis]  # keep the same dimension
+        out = sum([np.abs(ex(intervals, nan_as_zero=True)) for ex in extractors])[
+            ..., np.newaxis
+        ]  # keep the same dimension
     else:
-        out = np.stack([np.abs(ex(intervals, nan_as_zero=True))
-                        for ex in extractors], axis=-1)
+        out = np.stack(
+            [np.abs(ex(intervals, nan_as_zero=True)) for ex in extractors], axis=-1
+        )
 
     # Take the strand into account
     for i, interval in enumerate(intervals):
-        if interval.strand == '-':
+        if interval.strand == "-":
             out[i, :, :] = out[i, ::-1, ::-1]
     return out
 
@@ -207,20 +209,23 @@ def _run_extractors(extractors, intervals, sum_tracks=False):
 @gin.configurable
 class StrandedProfile(Dataset):
 
-    def __init__(self, ds,
-                 peak_width=200,
-                 seq_width=None,
-                 incl_chromosomes=None,
-                 excl_chromosomes=None,
-                 intervals_file=None,
-                 intervals_format='bed',
-                 include_metadata=True,
-                 tasks=None,
-                 include_classes=False,
-                 shuffle=True,
-                 interval_transformer=None,
-                 track_transform=None,
-                 total_count_transform=lambda x: np.log(1 + x)):
+    def __init__(
+        self,
+        ds,
+        peak_width=200,
+        seq_width=None,
+        incl_chromosomes=None,
+        excl_chromosomes=None,
+        intervals_file=None,
+        intervals_format="bed",
+        include_metadata=True,
+        tasks=None,
+        include_classes=False,
+        shuffle=True,
+        interval_transformer=None,
+        track_transform=None,
+        total_count_transform=lambda x: np.log(1 + x),
+    ):
         """Dataset for loading the bigwigs and fastas
 
         Args:
@@ -246,7 +251,7 @@ class StrandedProfile(Dataset):
         else:
             self.seq_width = seq_width
 
-        assert intervals_format in ['bed3', 'bed3+labels', 'bed']
+        assert intervals_format in ["bed3", "bed3+labels", "bed"]
 
         self.shuffle = shuffle
         self.intervals_file = intervals_file
@@ -268,32 +273,40 @@ class StrandedProfile(Dataset):
 
         if self.intervals_file is None:
             # concatenate the bed files
-            self.dfm = pd.concat([TsvReader(task_spec.peaks,
-                                            num_chr=False,
-                                            incl_chromosomes=incl_chromosomes,
-                                            excl_chromosomes=excl_chromosomes,
-                                            chromosome_lens=self.chrom_lens,
-                                            resize_width=max(self.peak_width, self.seq_width)
-                                            ).df.iloc[:, :3].assign(task=task)
-                                  for task, task_spec in self.ds.task_specs.items()
-                                  if task_spec.peaks is not None])
+            self.dfm = pd.concat(
+                [
+                    TsvReader(
+                        task_spec.peaks,
+                        num_chr=False,
+                        incl_chromosomes=incl_chromosomes,
+                        excl_chromosomes=excl_chromosomes,
+                        chromosome_lens=self.chrom_lens,
+                        resize_width=max(self.peak_width, self.seq_width),
+                    )
+                    .df.iloc[:, :3]
+                    .assign(task=task)
+                    for task, task_spec in self.ds.task_specs.items()
+                    if task_spec.peaks is not None
+                ]
+            )
             assert list(self.dfm.columns)[:4] == [0, 1, 2, "task"]
             if self.shuffle:
                 self.dfm = self.dfm.sample(frac=1)
             self.tsv = None
             self.dfm_tasks = None
         else:
-            self.tsv = TsvReader(self.intervals_file,
-                                 num_chr=False,
-                                 # optional
-                                 label_dtype=int if self.intervals_format == 'bed3+labels' else None,
-                                 mask_ambigous=-1 if self.intervals_format == 'bed3+labels' else None,
-                                 # --------------------------------------------
-                                 incl_chromosomes=incl_chromosomes,
-                                 excl_chromosomes=excl_chromosomes,
-                                 chromosome_lens=self.chrom_lens,
-                                 resize_width=max(self.peak_width, self.seq_width)
-                                 )
+            self.tsv = TsvReader(
+                self.intervals_file,
+                num_chr=False,
+                # optional
+                label_dtype=int if self.intervals_format == "bed3+labels" else None,
+                mask_ambigous=-1 if self.intervals_format == "bed3+labels" else None,
+                # --------------------------------------------
+                incl_chromosomes=incl_chromosomes,
+                excl_chromosomes=excl_chromosomes,
+                chromosome_lens=self.chrom_lens,
+                resize_width=max(self.peak_width, self.seq_width),
+            )
             if self.shuffle:
                 self.tsv.shuffle_inplace()
             self.dfm = self.tsv.df  # use the data-frame from tsv
@@ -312,9 +325,12 @@ class StrandedProfile(Dataset):
             assert set(self.tasks).issubset(self.dfm_tasks)
 
         # setup bias maps per task
-        self.task_bias_tracks = {task: [bias for bias, spec in self.ds.bias_specs.items()
-                                        if task in spec.tasks]
-                                 for task in self.tasks}
+        self.task_bias_tracks = {
+            task: [
+                bias for bias, spec in self.ds.bias_specs.items() if task in spec.tasks
+            ]
+            for task in self.tasks
+        }
 
     def __len__(self):
         return len(self.dfm)
@@ -334,16 +350,23 @@ class StrandedProfile(Dataset):
             # Use normal fasta/bigwig extractors
             self.fasta_extractor = FastaExtractor(self.ds.fasta_file, use_strand=True)
 
-            self.bw_extractors = {task: [BigwigExtractor(track) for track in task_spec.tracks]
-                                  for task, task_spec in self.ds.task_specs.items() if task in self.tasks}
+            self.bw_extractors = {
+                task: [BigwigExtractor(track) for track in task_spec.tracks]
+                for task, task_spec in self.ds.task_specs.items()
+                if task in self.tasks
+            }
 
-            self.bias_bw_extractors = {task: [BigwigExtractor(track) for track in task_spec.tracks]
-                                       for task, task_spec in self.ds.bias_specs.items()}
+            self.bias_bw_extractors = {
+                task: [BigwigExtractor(track) for track in task_spec.tracks]
+                for task, task_spec in self.ds.bias_specs.items()
+            }
 
         # Get the genomic interval for that particular datapoint
-        interval = Interval(self.dfm.iat[idx, 0],  # chrom
-                            self.dfm.iat[idx, 1],  # start
-                            self.dfm.iat[idx, 2])  # end
+        interval = Interval(
+            self.dfm.iat[idx, 0],  # chrom
+            self.dfm.iat[idx, 1],  # start
+            self.dfm.iat[idx, 2],
+        )  # end
 
         # Transform the input interval (for say augmentation...)
         if self.interval_transformer is not None:
@@ -355,94 +378,125 @@ class StrandedProfile(Dataset):
 
         # This only kicks in when we specify the taskname from dataspec
         # to the 3rd column. E.g. it doesn't apply when using intervals_file
-        interval_from_task = self.dfm.iat[idx, 3] if self.intervals_file is None else ''
+        interval_from_task = self.dfm.iat[idx, 3] if self.intervals_file is None else ""
 
         # extract DNA sequence + one-hot encode it
         sequence = self.fasta_extractor([seq_interval])[0]
         inputs = {"seq": sequence}
 
         # exctract the profile counts from the bigwigs
-        cuts = {f"{task}/profile": _run_extractors(self.bw_extractors[task],
-                                                   [target_interval],
-                                                   sum_tracks=spec.sum_tracks)[0]
-                for task, spec in self.ds.task_specs.items() if task in self.tasks}
+        cuts = {
+            f"{task}/profile": _run_extractors(
+                self.bw_extractors[task], [target_interval], sum_tracks=spec.sum_tracks
+            )[0]
+            for task, spec in self.ds.task_specs.items()
+            if task in self.tasks
+        }
         if self.track_transform is not None:
             for task in self.tasks:
-                cuts[f'{task}/profile'] = self.track_transform(cuts[f'{task}/profile'])
+                cuts[f"{task}/profile"] = self.track_transform(cuts[f"{task}/profile"])
 
         # Add total number of counts
         for task in self.tasks:
-            cuts[f'{task}/counts'] = self.total_count_transform(cuts[f'{task}/profile'].sum(0))
+            cuts[f"{task}/counts"] = self.total_count_transform(
+                cuts[f"{task}/profile"].sum(0)
+            )
 
         if len(self.ds.bias_specs) > 0:
             # Extract the bias tracks
-            biases = {bias_task: _run_extractors(self.bias_bw_extractors[bias_task],
-                                                 [target_interval],
-                                                 sum_tracks=spec.sum_tracks)[0]
-                      for bias_task, spec in self.ds.bias_specs.items()}
+            biases = {
+                bias_task: _run_extractors(
+                    self.bias_bw_extractors[bias_task],
+                    [target_interval],
+                    sum_tracks=spec.sum_tracks,
+                )[0]
+                for bias_task, spec in self.ds.bias_specs.items()
+            }
 
-            task_biases = {f"bias/{task}/profile": np.concatenate([biases[bt]
-                                                                   for bt in self.task_bias_tracks[task]],
-                                                                  axis=-1)
-                           for task in self.tasks}
+            task_biases = {
+                f"bias/{task}/profile": np.concatenate(
+                    [biases[bt] for bt in self.task_bias_tracks[task]], axis=-1
+                )
+                for task in self.tasks
+            }
 
             if self.track_transform is not None:
                 for task in self.tasks:
-                    task_biases[f'bias/{task}/profile'] = self.track_transform(task_biases[f'bias/{task}/profile'])
+                    task_biases[f"bias/{task}/profile"] = self.track_transform(
+                        task_biases[f"bias/{task}/profile"]
+                    )
 
             # Add total number of bias counts
             for task in self.tasks:
-                task_biases[f'bias/{task}/counts'] = self.total_count_transform(task_biases[f'bias/{task}/profile'].sum(0))
+                task_biases[f"bias/{task}/counts"] = self.total_count_transform(
+                    task_biases[f"bias/{task}/profile"].sum(0)
+                )
 
             inputs = {**inputs, **task_biases}
 
         if self.include_classes:
             # Optionally, add binary labels from the additional columns in the tsv intervals file
-            classes = {f"{task}/class": self.dfm.iat[idx, i + 3]
-                       for i, task in enumerate(self.dfm_tasks) if task in self.tasks}
+            classes = {
+                f"{task}/class": self.dfm.iat[idx, i + 3]
+                for i, task in enumerate(self.dfm_tasks)
+                if task in self.tasks
+            }
             cuts = {**cuts, **classes}
 
-        out = {"inputs": inputs,
-               "targets": cuts}
+        out = {"inputs": inputs, "targets": cuts}
 
         if self.include_metadata:
             # remember the metadata (what genomic interval was used)
-            out['metadata'] = {"range": GenomicRanges(chr=target_interval.chrom,
-                                                      start=target_interval.start,
-                                                      end=target_interval.stop,
-                                                      id=idx,
-                                                      strand=(target_interval.strand
-                                                              if target_interval.strand is not None
-                                                              else "*"),
-                                                      ),
-                               "interval_from_task": interval_from_task}
+            out["metadata"] = {
+                "range": GenomicRanges(
+                    chr=target_interval.chrom,
+                    start=target_interval.start,
+                    end=target_interval.stop,
+                    id=idx,
+                    strand=(
+                        target_interval.strand
+                        if target_interval.strand is not None
+                        else "*"
+                    ),
+                ),
+                "interval_from_task": interval_from_task,
+            }
         return out
+
 
 # -------------------------------------------------------
 # final datasets returning a (train, validation) tuple
 @gin.configurable
-def bpnet_data(dataspec,
-               peak_width=1000,
-               intervals_file=None,
-               intervals_format='bed',
-               seq_width=None,
-               shuffle=True,
-               total_count_transform=lambda x: np.log(1 + x),
-               track_transform=None,
-               include_metadata=False,
-               valid_chr=['chr2', 'chr3', 'chr4'],
-               test_chr=['chr1', 'chr8', 'chr9'],
-               exclude_chr=[],
-               augment_interval=True,
-               interval_augmentation_shift=200,
-               tasks=None):
+def bpnet_data(
+    dataspec,
+    peak_width=1000,
+    intervals_file=None,
+    intervals_format="bed",
+    seq_width=None,
+    shuffle=True,
+    total_count_transform=lambda x: np.log(1 + x),
+    track_transform=None,
+    include_metadata=False,
+    valid_chr=None,
+    test_chr=None,
+    exclude_chr=None,
+    augment_interval=True,
+    interval_augmentation_shift=200,
+    tasks=None,
+):
     """BPNet default data-loader
 
     Args:
+      dataspec:
       tasks: specify a subset of the tasks to use in the dataspec.yml. If None, all tasks will be specified.
     """
-    from bpnet.metrics import BPNetMetric, PeakPredictionProfileMetric, pearson_spearman
     # test and valid shouldn't be in the valid or test sets
+    if exclude_chr is None:
+        exclude_chr = []
+    if test_chr is None:
+        test_chr = ["chr1", "chr8", "chr9"]
+    if valid_chr is None:
+        valid_chr = ["chr2", "chr3", "chr4"]
     for vc in valid_chr:
         assert vc not in exclude_chr
     for vc in test_chr:
@@ -454,75 +508,103 @@ def bpnet_data(dataspec,
         tasks = list(dataspec.task_specs)
 
     if augment_interval:
-        interval_transformer = IntervalAugmentor(max_shift=interval_augmentation_shift,
-                                                 flip_strand=True)
+        interval_transformer = IntervalAugmentor(
+            max_shift=interval_augmentation_shift, flip_strand=True
+        )
     else:
         interval_transformer = None
 
     # get the list of all chromosomes from the fasta file
     all_chr = _chrom_names(dataspec.fasta_file)
 
-    return (StrandedProfile(dataspec, peak_width,
-                            intervals_file=intervals_file,
-                            intervals_format=intervals_format,
-                            seq_width=seq_width,
-                            include_metadata=include_metadata,
-                            incl_chromosomes=[c for c in all_chr
-                                              if c not in valid_chr + test_chr + exclude_chr],
-                            excl_chromosomes=valid_chr + test_chr + exclude_chr,
-                            tasks=tasks,
-                            shuffle=shuffle,
-                            track_transform=track_transform,
-                            total_count_transform=total_count_transform,
-                            interval_transformer=interval_transformer),
-            [('valid-peaks', StrandedProfile(dataspec,
-                                             peak_width,
-                                             intervals_file=intervals_file,
-                                             intervals_format=intervals_format,
-                                             seq_width=seq_width,
-                                             include_metadata=include_metadata,
-                                             incl_chromosomes=valid_chr,
-                                             tasks=tasks,
-                                             interval_transformer=interval_transformer,
-                                             shuffle=shuffle,
-                                             track_transform=track_transform,
-                                             total_count_transform=total_count_transform)),
-             ('train-peaks', StrandedProfile(dataspec, peak_width,
-                                             intervals_file=intervals_file,
-                                             intervals_format=intervals_format,
-                                             seq_width=seq_width,
-                                             include_metadata=include_metadata,
-                                             incl_chromosomes=[c for c in all_chr
-                                                               if c not in valid_chr + test_chr + exclude_chr],
-                                             excl_chromosomes=valid_chr + test_chr + exclude_chr,
-                                             tasks=tasks,
-                                             interval_transformer=interval_transformer,
-                                             shuffle=shuffle,
-                                             track_transform=track_transform,
-                                             total_count_transform=total_count_transform)),
-             ])
+    return (
+        StrandedProfile(
+            dataspec,
+            peak_width,
+            intervals_file=intervals_file,
+            intervals_format=intervals_format,
+            seq_width=seq_width,
+            include_metadata=include_metadata,
+            incl_chromosomes=[
+                c for c in all_chr if c not in valid_chr + test_chr + exclude_chr
+            ],
+            excl_chromosomes=valid_chr + test_chr + exclude_chr,
+            tasks=tasks,
+            shuffle=shuffle,
+            track_transform=track_transform,
+            total_count_transform=total_count_transform,
+            interval_transformer=interval_transformer,
+        ),
+        [
+            (
+                "valid-peaks",
+                StrandedProfile(
+                    dataspec,
+                    peak_width,
+                    intervals_file=intervals_file,
+                    intervals_format=intervals_format,
+                    seq_width=seq_width,
+                    include_metadata=include_metadata,
+                    incl_chromosomes=valid_chr,
+                    tasks=tasks,
+                    interval_transformer=interval_transformer,
+                    shuffle=shuffle,
+                    track_transform=track_transform,
+                    total_count_transform=total_count_transform,
+                ),
+            ),
+            (
+                "train-peaks",
+                StrandedProfile(
+                    dataspec,
+                    peak_width,
+                    intervals_file=intervals_file,
+                    intervals_format=intervals_format,
+                    seq_width=seq_width,
+                    include_metadata=include_metadata,
+                    incl_chromosomes=[
+                        c
+                        for c in all_chr
+                        if c not in valid_chr + test_chr + exclude_chr
+                    ],
+                    excl_chromosomes=valid_chr + test_chr + exclude_chr,
+                    tasks=tasks,
+                    interval_transformer=interval_transformer,
+                    shuffle=shuffle,
+                    track_transform=track_transform,
+                    total_count_transform=total_count_transform,
+                ),
+            ),
+        ],
+    )
 
 
 @gin.configurable
-def bpnet_data_gw(dataspec,
-                  intervals_file=None,
-                  peak_width=200,
-                  seq_width=None,
-                  shuffle=True,
-                  track_transform=None,
-                  total_count_transform=lambda x: np.log(1 + x),
-                  include_metadata=False,
-                  include_classes=False,
-                  tasks=None,
-                  valid_chr=['chr2', 'chr3', 'chr4'],
-                  test_chr=['chr1', 'chr8', 'chr9'],
-                  exclude_chr=[]):
-    """Genome-wide bpnet data
-    """
+def bpnet_data_gw(
+    dataspec,
+    intervals_file=None,
+    peak_width=200,
+    seq_width=None,
+    shuffle=True,
+    track_transform=None,
+    total_count_transform=lambda x: np.log(1 + x),
+    include_metadata=False,
+    include_classes=False,
+    tasks=None,
+    valid_chr=None,
+    test_chr=None,
+    exclude_chr=None,
+):
+    """Genome-wide bpnet data"""
     # NOTE = only chromosomes from chr1-22 and chrX and chrY are considered here
     # (e.g. all other chromosomes like ChrUn... are omitted)
-    from bpnet.metrics import BPNetMetric, PeakPredictionProfileMetric, pearson_spearman
     # test and valid shouldn't be in the valid or test sets
+    if exclude_chr is None:
+        exclude_chr = []
+    if test_chr is None:
+        test_chr = ["chr1", "chr8", "chr9"]
+    if valid_chr is None:
+        valid_chr = ["chr2", "chr3", "chr4"]
     for vc in valid_chr:
         assert vc not in exclude_chr
     for vc in test_chr:
@@ -536,73 +618,104 @@ def bpnet_data_gw(dataspec,
     if tasks is None:
         tasks = list(dataspec.task_specs)
 
-    train = StrandedProfile(dataspec, peak_width,
-                            seq_width=seq_width,
-                            intervals_file=intervals_file,
-                            intervals_format='bed3+labels',
-                            include_metadata=include_metadata,
-                            include_classes=include_classes,
-                            tasks=tasks,
-                            incl_chromosomes=[c for c in all_chr
-                                              if c not in valid_chr + test_chr + exclude_chr],
-                            excl_chromosomes=valid_chr + test_chr + exclude_chr,
-                            shuffle=shuffle,
-                            track_transform=track_transform,
-                            total_count_transform=total_count_transform)
+    train = StrandedProfile(
+        dataspec,
+        peak_width,
+        seq_width=seq_width,
+        intervals_file=intervals_file,
+        intervals_format="bed3+labels",
+        include_metadata=include_metadata,
+        include_classes=include_classes,
+        tasks=tasks,
+        incl_chromosomes=[
+            c for c in all_chr if c not in valid_chr + test_chr + exclude_chr
+        ],
+        excl_chromosomes=valid_chr + test_chr + exclude_chr,
+        shuffle=shuffle,
+        track_transform=track_transform,
+        total_count_transform=total_count_transform,
+    )
 
-    valid = [('train-valid-genome-wide',
-              StrandedProfile(dataspec, peak_width,
-                              seq_width=seq_width,
-                              intervals_file=intervals_file,
-                              intervals_format='bed3+labels',
-                              include_metadata=include_metadata,
-                              include_classes=include_classes,
-                              tasks=tasks,
-                              incl_chromosomes=valid_chr,
-                              shuffle=shuffle,
-                              track_transform=track_transform,
-                              total_count_transform=total_count_transform))]
+    valid = [
+        (
+            "train-valid-genome-wide",
+            StrandedProfile(
+                dataspec,
+                peak_width,
+                seq_width=seq_width,
+                intervals_file=intervals_file,
+                intervals_format="bed3+labels",
+                include_metadata=include_metadata,
+                include_classes=include_classes,
+                tasks=tasks,
+                incl_chromosomes=valid_chr,
+                shuffle=shuffle,
+                track_transform=track_transform,
+                total_count_transform=total_count_transform,
+            ),
+        )
+    ]
     if include_classes:
         # Only use binary classification for genome-wide evaluation
-        valid = valid + [('valid-genome-wide',
-                          StrandedProfile(dataspec, peak_width,
-                                          seq_width=seq_width,
-                                          intervals_file=intervals_file,
-                                          intervals_format='bed3+labels',
-                                          include_metadata=include_metadata,
-                                          include_classes=True,
-                                          tasks=tasks,
-                                          incl_chromosomes=valid_chr,
-                                          shuffle=shuffle,
-                                          track_transform=track_transform,
-                                          total_count_transform=total_count_transform))]
+        valid = valid + [
+            (
+                "valid-genome-wide",
+                StrandedProfile(
+                    dataspec,
+                    peak_width,
+                    seq_width=seq_width,
+                    intervals_file=intervals_file,
+                    intervals_format="bed3+labels",
+                    include_metadata=include_metadata,
+                    include_classes=True,
+                    tasks=tasks,
+                    incl_chromosomes=valid_chr,
+                    shuffle=shuffle,
+                    track_transform=track_transform,
+                    total_count_transform=total_count_transform,
+                ),
+            )
+        ]
 
     # Add also the peak regions
     valid = valid + [
-        ('valid-peaks', StrandedProfile(dataspec, peak_width,
-                                        seq_width=seq_width,
-                                        intervals_file=None,
-                                        intervals_format='bed3+labels',
-                                        include_metadata=include_metadata,
-                                        tasks=tasks,
-                                        include_classes=False,  # dataspec doesn't contain labels
-                                        incl_chromosomes=valid_chr,
-                                        shuffle=shuffle,
-                                        track_transform=track_transform,
-                                        total_count_transform=total_count_transform)),
-        ('train-peaks', StrandedProfile(dataspec, peak_width,
-                                        seq_width=seq_width,
-                                        intervals_file=None,
-                                        intervals_format='bed3+labels',
-                                        include_metadata=include_metadata,
-                                        tasks=tasks,
-                                        include_classes=False,  # dataspec doesn't contain labels
-                                        incl_chromosomes=[c for c in all_chr
-                                                          if c not in valid_chr + test_chr + exclude_chr],
-                                        excl_chromosomes=valid_chr + test_chr + exclude_chr,
-                                        shuffle=shuffle,
-                                        track_transform=track_transform,
-                                        total_count_transform=total_count_transform)),
+        (
+            "valid-peaks",
+            StrandedProfile(
+                dataspec,
+                peak_width,
+                seq_width=seq_width,
+                intervals_file=None,
+                intervals_format="bed3+labels",
+                include_metadata=include_metadata,
+                tasks=tasks,
+                include_classes=False,  # dataspec doesn't contain labels
+                incl_chromosomes=valid_chr,
+                shuffle=shuffle,
+                track_transform=track_transform,
+                total_count_transform=total_count_transform,
+            ),
+        ),
+        (
+            "train-peaks",
+            StrandedProfile(
+                dataspec,
+                peak_width,
+                seq_width=seq_width,
+                intervals_file=None,
+                intervals_format="bed3+labels",
+                include_metadata=include_metadata,
+                tasks=tasks,
+                include_classes=False,  # dataspec doesn't contain labels
+                incl_chromosomes=[
+                    c for c in all_chr if c not in valid_chr + test_chr + exclude_chr
+                ],
+                excl_chromosomes=valid_chr + test_chr + exclude_chr,
+                shuffle=shuffle,
+                track_transform=track_transform,
+                total_count_transform=total_count_transform,
+            ),
+        ),
         # use the default metric for the peak sets
     ]
     return train, valid
@@ -619,12 +732,15 @@ class SeqClassification(Dataset):
           don't start with chr
     """
 
-    def __init__(self, intervals_file,
-                 fasta_file,
-                 incl_chromosomes=None,
-                 excl_chromosomes=None,
-                 auto_resize_len=None,
-                 num_chr_fasta=False):
+    def __init__(
+        self,
+        intervals_file,
+        fasta_file,
+        incl_chromosomes=None,
+        excl_chromosomes=None,
+        auto_resize_len=None,
+        num_chr_fasta=False,
+    ):
         self.num_chr_fasta = num_chr_fasta
         self.intervals_file = intervals_file
         self.fasta_file = fasta_file
@@ -632,13 +748,14 @@ class SeqClassification(Dataset):
         self.excl_chromosomes = excl_chromosomes
         self.auto_resize_len = auto_resize_len
 
-        self.tsv = TsvReader(self.intervals_file,
-                             num_chr=self.num_chr_fasta,
-                             label_dtype=int,
-                             mask_ambigous=-1,
-                             incl_chromosomes=incl_chromosomes,
-                             excl_chromosomes=excl_chromosomes,
-                             )
+        self.tsv = TsvReader(
+            self.intervals_file,
+            num_chr=self.num_chr_fasta,
+            label_dtype=int,
+            mask_ambigous=-1,
+            incl_chromosomes=incl_chromosomes,
+            excl_chromosomes=excl_chromosomes,
+        )
         self.fasta_extractor = None
 
     def __len__(self):
@@ -661,16 +778,15 @@ class SeqClassification(Dataset):
             "inputs": {"seq": seq},
             "targets": labels,
             "metadata": {
-                "range": GenomicRanges(chr=interval.chrom,
-                                        start=interval.start,
-                                        end=interval.stop,
-                                        id=str(idx),
-                                        strand=(interval.strand
-                                                if interval.strand is not None
-                                                else "*"),
-                                        ),
-                "interval_from_task": ''
-            }
+                "range": GenomicRanges(
+                    chr=interval.chrom,
+                    start=interval.start,
+                    end=interval.stop,
+                    id=str(idx),
+                    strand=(interval.strand if interval.strand is not None else "*"),
+                ),
+                "interval_from_task": "",
+            },
         }
 
     def get_targets(self):
@@ -678,11 +794,15 @@ class SeqClassification(Dataset):
 
 
 @gin.configurable
-def chrom_dataset(dataset_cls,
-                  valid_chr=['chr2', 'chr3', 'chr4'],
-                  holdout_chr=['chr1', 'chr8', 'chr9']):
-    return (dataset_cls(excl_chromosomes=valid_chr + holdout_chr),
-            dataset_cls(incl_chromosomes=valid_chr))
+def chrom_dataset(dataset_cls, valid_chr=None, holdout_chr=None):
+    if holdout_chr is None:
+        holdout_chr = ["chr1", "chr8", "chr9"]
+    if valid_chr is None:
+        valid_chr = ["chr2", "chr3", "chr4"]
+    return (
+        dataset_cls(excl_chromosomes=valid_chr + holdout_chr),
+        dataset_cls(incl_chromosomes=valid_chr),
+    )
 
 
 def get(name):

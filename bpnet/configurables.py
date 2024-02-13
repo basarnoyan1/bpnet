@@ -1,8 +1,8 @@
 """Other gin configurables
 """
 import os
+
 import gin
-import modisco
 import modisco.tfmodisco_workflow.workflow
 from gin import config
 from tensorflow import keras
@@ -46,4 +46,3 @@ def report_template(name, raise_error=True):
 
 # alias
 eval_report_template = report_template
-

@@ -9,7 +9,6 @@ try:
 except Exception:
     pass
 
-import pandas as pd  # need to import that first to prevent some install issues
 from . import metrics
 from . import trainers
 from . import utils
@@ -17,8 +16,7 @@ from . import losses
 from . import activations
 from . import cli
 
-from tensorflow import keras
-from keras.utils import get_custom_objects
+from tensorflow.keras.utils import get_custom_objects
 custom_objects_modules = [losses, activations]
 for mod in custom_objects_modules:
     for f in mod.AVAILABLE:

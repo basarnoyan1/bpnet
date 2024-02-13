@@ -375,6 +375,8 @@ def train(output_dir,
         np.random.seed(seed)
         try:
             import tensorflow as tf
+
+            tf.compat.v1.disable_eager_execution()
             tf.set_random_seed(seed)
         except Exception:
             logger.info("Unable to set random seed for tensorflow")

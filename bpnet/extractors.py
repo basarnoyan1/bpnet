@@ -2,7 +2,6 @@ import numpy as np
 from tqdm import tqdm
 import attr
 from concise.preprocessing import encodeDNA
-from joblib import Parallel, delayed
 from collections import OrderedDict
 
 

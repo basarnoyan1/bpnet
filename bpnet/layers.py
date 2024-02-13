@@ -1,14 +1,10 @@
-from tensorflow import keras
-import keras.layers as kl
-from keras.layers import Layer
+import tensorflow.keras.layers as kl
 import tensorflow as tf
 from concise.utils.helper import get_from_module
 from concise.layers import SplineWeight1D
-from keras.models import Model, Sequential
-import numpy as np
 import gin
 
-
+tf.compat.v1.disable_eager_execution()
 @gin.configurable
 class GlobalAvgPoolFCN:
 

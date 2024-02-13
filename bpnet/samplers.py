@@ -15,6 +15,7 @@ def get_batch_sizes(p_vec, batch_size, verbose=True):
     Args:
       p_vec: list of probabilities for each class
       batch_size: batch size
+      verbose:
 
     Returns:
       rounded list p_vec[i]*batch_size
@@ -35,7 +36,7 @@ def get_batch_sizes(p_vec, batch_size, verbose=True):
 @gin.configurable
 class StratifiedRandomBatchSampler(Sampler):
 
-    def __init__(self, class_vector, p_vec, batch_size, verbose=False):
+    def __init__(self, class_vector, p_vec, batch_size, data_source, verbose=False):
         """Stratified Sampling
 
         Args:
@@ -44,6 +45,7 @@ class StratifiedRandomBatchSampler(Sampler):
           batch_size (int): batch_size
           verbose
         """
+        super().__init__(data_source)
         self.n_splits = int(class_vector.shape[0] / batch_size)
         self.class_vector = class_vector
         self.p_vec = p_vec
@@ -67,7 +69,7 @@ class StratifiedRandomBatchSampler(Sampler):
         for i in range(len(self)):
             yield [next(self.class_idx_iterators[i])
                    for i, batch_size in enumerate(self.batch_sizes)
-                   for j in range(batch_size)]
+                   for _ in range(batch_size)]
 
     def __len__(self):
         return len(self.class_vector) // self.batch_size

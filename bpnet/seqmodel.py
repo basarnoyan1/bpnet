@@ -1,23 +1,27 @@
 """Sequence model
 """
-from tqdm import tqdm
-import os
-import tensorflow as tf
-from tensorflow import keras
-from keras.optimizers import Adam
-from collections import OrderedDict, defaultdict
-from copy import deepcopy
-from keras.models import Model
-from kipoi_utils.data_utils import numpy_collate_concat
-from bpnet.data import nested_numpy_minibatch
-from bpnet.utils import flatten, fnmatch_any, _listify
-from bpnet.functions import mean
-import gin
-from gin import config
 import logging
+import os
+from collections import defaultdict
+from copy import deepcopy
+
+import gin
+import tensorflow as tf
+from gin import config
+from kipoi_utils.data_utils import numpy_collate_concat
+from kipoi_utils.external.flatten_json import flatten
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
+from tqdm import tqdm
+
+from bpnet.data import nested_numpy_minibatch
+from bpnet.functions import mean
+from bpnet.utils import fnmatch_any, _listify
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
+tf.compat.v1.disable_eager_execution()
 
 class SeqModel:
     """Model interpreting the genome sequence
@@ -132,11 +136,8 @@ class SeqModel:
 
         import deepexplain
         from deepexplain.tensorflow.methods import DeepLIFTRescale
-        from deepexplain.tensorflow import DeepExplain
-        from bpnet.external.deeplift.dinuc_shuffle import dinuc_shuffle
         from keras.models import load_model, Model
         import keras.backend as K
-        import numpy as np
         import tempfile
 
         self.contrib_fns = {}
@@ -179,10 +180,8 @@ class SeqModel:
         k = f"grad/{name}"
         if k in self.contrib_fns:
             return self.contrib_fns[k]
-        from keras.models import load_model, Model
+        from keras.models import Model
         import keras.backend as K
-        import numpy as np
-        import tempfile
 
         self.contrib_fns = {}
 
@@ -194,11 +193,11 @@ class SeqModel:
         input_tensor = self.model.inputs
 
         if isinstance(x, list):
-            x_subset = [ix[:1] for ix in x]
+            pass
         elif isinstance(x, dict):
-            x_subset = [v[:1] for k, v in x.items()]
+            pass
         else:
-            x_subset = x[:1]
+            pass
 
         fModel = Model(inputs=input_tensor, outputs=intp_tensors)
         target_tensors = fModel(input_tensor)
@@ -213,6 +212,8 @@ class SeqModel:
         """Compute the contribution score
 
         Args:
+          batch_size:
+          preact_only:
           x: one-hot encoded DNA sequence
           name: which interepretation method to compute
           method: which contribution score to use. Available: grad or deeplift
@@ -252,8 +253,9 @@ class SeqModel:
         Args:
           seq: one-hot encoded DNA sequences
           method: 'grad' or deeplift'
-          aggregate_strands: if True, the average contribution scores across strands will be returned
           batch_size: batch size when computing the contribution scores
+          preact_only:
+          intp_pattern:
 
         Returns:
           dictionary with keys: {task}/{head}/{interpretation_tensor}

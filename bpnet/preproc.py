@@ -1,13 +1,11 @@
-import pandas as pd
-import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import make_pipeline
-from copy import deepcopy
-from bpnet.external.deeplift.dinuc_shuffle import dinuc_shuffle
-from concise.preprocessing.sequence import one_hot2string, encodeDNA, DNA
-from scipy.ndimage.filters import gaussian_filter1d
-import gin
 import random
+
+import gin
+import numpy as np
+import pandas as pd
+from concise.preprocessing.sequence import one_hot2string, encodeDNA, DNA
+
+from bpnet.external.deeplift.dinuc_shuffle import dinuc_shuffle
 
 
 def moving_average(x, n=1):
@@ -136,7 +134,7 @@ def keep_interval(interval, width, fa):
     """Returns True if the interval can be validly resized
     """
     start, stop = resize_interval_ij(interval, width)
-    return start >= 0 and stop > start and stop < fa.get_reference_length(interval.chrom)
+    return 0 <= start < stop < fa.get_reference_length(interval.chrom)
 
 
 def shift_interval(interval, shift):

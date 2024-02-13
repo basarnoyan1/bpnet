@@ -1,15 +1,17 @@
-import argh
+# logging
+import logging.config
 
-from bpnet.cli.train import bpnet_train, dataspec_stats
+import argh
+# noinspection PyDeprecation
+import pkg_resources
+
 from bpnet.cli.contrib import bpnet_contrib, list_contrib
 from bpnet.cli.export_bw import bpnet_export_bw, contrib2bw
 from bpnet.cli.modisco import (bpnet_modisco_run, cwm_scan,
                                chip_nexus_analysis, modisco_export_seqlets)
+from bpnet.cli.train import bpnet_train, dataspec_stats
 
-# logging
-import pkg_resources
-import logging
-import logging.config
+# noinspection PyDeprecation
 logging.config.fileConfig(pkg_resources.resource_filename(__name__, "logging.conf"))
 logger = logging.getLogger(__name__)
 
