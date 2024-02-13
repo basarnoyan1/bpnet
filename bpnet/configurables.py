@@ -5,16 +5,16 @@ import os
 import gin
 import modisco.tfmodisco_workflow.workflow
 from gin import config
-from tensorflow import keras
+import tensorflow.keras.optimizers as tko
 
 # keras.optimizers
-config.external_configurable(keras.optimizers.Adam, module='keras.optimizers')
-config.external_configurable(keras.optimizers.RMSprop, module='keras.optimizers')
-config.external_configurable(keras.optimizers.Adagrad, module='keras.optimizers')
-config.external_configurable(keras.optimizers.Adadelta, module='keras.optimizers')
-config.external_configurable(keras.optimizers.Adamax, module='keras.optimizers')
-config.external_configurable(keras.optimizers.Nadam, module='keras.optimizers')
-config.external_configurable(keras.optimizers.SGD, module='keras.optimizers')
+config.external_configurable(tko.Adam, module='tensorflow.keras.optimizers')
+config.external_configurable(tko.RMSprop, module='tensorflow.keras.optimizers')
+config.external_configurable(tko.Adagrad, module='tensorflow.keras.optimizers')
+config.external_configurable(tko.Adadelta, module='tensorflow.keras.optimizers')
+config.external_configurable(tko.Adamax, module='tensorflow.keras.optimizers')
+config.external_configurable(tko.Nadam, module='tensorflow.keras.optimizers')
+config.external_configurable(tko.SGD, module='tensorflow.keras.optimizers')
 
 
 # modisco

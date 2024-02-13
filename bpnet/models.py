@@ -1,6 +1,6 @@
 import gin
 from concise.utils.helper import get_from_module
-from keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam
 
 
 # TODO - setup the following model as a simple bpnet (?)

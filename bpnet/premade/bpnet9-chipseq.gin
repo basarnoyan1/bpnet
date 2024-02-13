@@ -17,10 +17,10 @@ import bpnet.configurables
 train.model = @SeqModel()
 SeqModel.seqlen = %seq_width
 SeqModel.tasks = %tasks
-SeqModel.optimizer = @keras.optimizers.Adam()
+SeqModel.optimizer = @tensorflow.keras.optimizers.Adam()
 SeqModel.heads = [@ProfileHead(), @ScalarHead()]
 SeqModel.body = @DilatedConv1D()
-keras.optimizers.Adam.lr = %lr
+tensorflow.keras.optimizers.Adam.lr = %lr
 
 # - Body
 DilatedConv1D.filters = %filters
