@@ -1,5 +1,6 @@
 """Sequence model
 """
+
 import logging
 import os
 from collections import defaultdict
@@ -23,20 +24,21 @@ logger.addHandler(logging.NullHandler())
 
 tf.compat.v1.disable_eager_execution()
 
-class SeqModel:
-    """Model interpreting the genome sequence
-    """
 
-    def __init__(self,
-                 body,
-                 # will be used for each task
-                 heads,
-                 tasks,
-                 optimizer=Adam(learning_rate=0.004),
-                 seqlen=None,
-                 input_shape=None,
-                 input_name='seq'
-                 ):
+class SeqModel:
+    """Model interpreting the genome sequence"""
+
+    def __init__(
+        self,
+        body,
+        # will be used for each task
+        heads,
+        tasks,
+        optimizer=Adam(learning_rate=0.004),
+        seqlen=None,
+        input_shape=None,
+        input_name="seq",
+    ):
         """
 
         Args:
@@ -47,7 +49,8 @@ class SeqModel:
         1. build the keras model (don't )
         2. compile the Keras model
         """
-        import keras.layers as kl
+        import tensorflow.keras.layers as kl
+
         self.body = body
         self.tasks = tasks
         self.heads = heads
@@ -81,8 +84,9 @@ class SeqModel:
 
         # create and compile the model
         self.model = Model([inp] + bias_inputs, outputs)
-        self.model.compile(optimizer=optimizer,
-                           loss=self.losses, loss_weights=self.loss_weights)
+        self.model.compile(
+            optimizer=optimizer, loss=self.losses, loss_weights=self.loss_weights
+        )
 
         # start without any contribution function
         self.contrib_fns = {}
@@ -96,14 +100,15 @@ class SeqModel:
         return graph.get_tensor_by_name(self.bottleneck_name)
 
     def bottleneck_model(self):
-        return Model(self._get_input_tensor(),
-                     self.get_bottleneck_tensor())
+        return Model(self._get_input_tensor(), self.get_bottleneck_tensor())
 
     def preact_model(self):
         # TODO - be able to serialize head.get_preact_tensor into json
-        outputs = [head.get_preact_tensor()
-                   for task, heads in self.all_heads.items()
-                   for head in heads]
+        outputs = [
+            head.get_preact_tensor()
+            for task, heads in self.all_heads.items()
+            for head in heads
+        ]
         return Model(self._get_input_tensor(), outputs)
 
     def predict_preact(self, seq, batch_size=256):
@@ -112,11 +117,15 @@ class SeqModel:
         return {k: v for k, v in zip(self.target_names, preds)}
 
     def neutral_bias_inputs(self, length, seqlen):
-        """Compile a set of neutral bias inputs
-        """
-        return dict([head.neutral_bias_input(task, length, seqlen)
-                     for task, heads in self.all_heads.items()
-                     for head in heads if head.use_bias])
+        """Compile a set of neutral bias inputs"""
+        return dict(
+            [
+                head.neutral_bias_input(task, length, seqlen)
+                for task, heads in self.all_heads.items()
+                for head in heads
+                if head.use_bias
+            ]
+        )
 
     def get_intp_tensors(self, preact_only=True):
         intp_targets = []
@@ -128,20 +137,19 @@ class SeqModel:
         return intp_targets
 
     def _contrib_deeplift_fn(self, x, name, preact_only=True):
-        """Deeplift contribution score tensors
-        """
+        """Deeplift contribution score tensors"""
         k = f"deeplift/{name}"
         if k in self.contrib_fns:
             return self.contrib_fns[k]
 
         import deepexplain
         from deepexplain.tensorflow.methods import DeepLIFTRescale
-        from keras.models import load_model, Model
-        import keras.backend as K
+        from tensorflow.keras.models import load_model, Model
+        from tensorflow.python.keras import backend as K
         import tempfile
 
         self.contrib_fns = {}
-        with tempfile.NamedTemporaryFile(suffix='.pkl') as temp:
+        with tempfile.NamedTemporaryFile(suffix=".pkl") as temp:
             self.model.save(temp.name, save_format="h5")
             K.clear_session()
             self.model = load_model(temp.name)
@@ -165,23 +173,24 @@ class SeqModel:
             target_tensors = fModel(input_tensor)
             for name, target_tensor in zip(intp_names, target_tensors):
                 # input_tensor = fModel.inputs[0]
-                self.contrib_fns["deeplift/" + name] = de.explain('deeplift',
-                                                                  target_tensor,
-                                                                  # NOTE: deepexplain will always take
-                                                                  # the first element by definition
-                                                                  input_tensor,
-                                                                  x_subset)
+                self.contrib_fns["deeplift/" + name] = de.explain(
+                    "deeplift",
+                    target_tensor,
+                    # NOTE: deepexplain will always take
+                    # the first element by definition
+                    input_tensor,
+                    x_subset,
+                )
 
         return self.contrib_fns[k]
 
     def _contrib_grad_fn(self, x, name, preact_only=True):
-        """Gradient contribution score tensors
-        """
+        """Gradient contribution score tensors"""
         k = f"grad/{name}"
         if k in self.contrib_fns:
             return self.contrib_fns[k]
-        from keras.models import Model
-        import keras.backend as K
+        from tensorflow.keras.models import Model
+        from tensorflow.python.keras import backend as K
 
         self.contrib_fns = {}
 
@@ -203,12 +212,13 @@ class SeqModel:
         target_tensors = fModel(input_tensor)
         for name, target_tensor in zip(intp_names, target_tensors):
             # input_tensor = fModel.inputs[0]
-            self.contrib_fns["grad/" + name] = K.function(input_tensor,
-                                                          K.gradients(target_tensor, input_tensor[0]))
+            self.contrib_fns["grad/" + name] = K.function(
+                input_tensor, K.gradients(target_tensor, input_tensor[0])
+            )
 
         return self.contrib_fns[k]
 
-    def contrib_score(self, x, name, method='grad', batch_size=512, preact_only=False):
+    def contrib_score(self, x, name, method="grad", batch_size=512, preact_only=False):
         """Compute the contribution score
 
         Args:
@@ -221,14 +231,16 @@ class SeqModel:
         # Do we need bias?
         if not isinstance(x, dict) and not isinstance(x, list):
             seqlen = x.shape[1]
-            x = {'seq': x, **self.neutral_bias_inputs(len(x), seqlen=seqlen)}
+            x = {"seq": x, **self.neutral_bias_inputs(len(x), seqlen=seqlen)}
 
         if method == "deeplift":
             fn = self._contrib_deeplift_fn(x, name, preact_only=preact_only)
         elif method == "grad":
             fn = self._contrib_grad_fn(x, name, preact_only=preact_only)
         else:
-            raise ValueError("Please provide a valid contribution scoring method: grad, deeplift")
+            raise ValueError(
+                "Please provide a valid contribution scoring method: grad, deeplift"
+            )
 
         def input_to_list(input_names, x):
             if isinstance(x, list):
@@ -237,17 +249,23 @@ class SeqModel:
                 return [x[k] for k in input_names]
             else:
                 return [x]
+
         input_names = self.model.input_names
         assert input_names[0] == "seq"
 
         if batch_size is None:
             return fn(input_to_list(input_names, x))[0]
         else:
-            return numpy_collate_concat([fn(input_to_list(input_names, batch))[0]
-                                         for batch in nested_numpy_minibatch(x, batch_size=batch_size)])
+            return numpy_collate_concat(
+                [
+                    fn(input_to_list(input_names, batch))[0]
+                    for batch in nested_numpy_minibatch(x, batch_size=batch_size)
+                ]
+            )
 
-    def contrib_score_all(self, seq, method='grad', batch_size=512, preact_only=True,
-                          intp_pattern='*'):
+    def contrib_score_all(
+        self, seq, method="grad", batch_size=512, preact_only=True, intp_pattern="*"
+    ):
         """Compute all contribution scores
 
         Args:
@@ -263,41 +281,54 @@ class SeqModel:
         """
         intp_patterns = _listify(intp_pattern)  # make sure it's a list
 
-        return {name: self.contrib_score(seq, name, method=method, batch_size=batch_size, preact_only=preact_only)
-                for name, _ in self.get_intp_tensors(preact_only=preact_only)
-                if fnmatch_any(name, intp_patterns)}
+        return {
+            name: self.contrib_score(
+                seq, name, method=method, batch_size=batch_size, preact_only=preact_only
+            )
+            for name, _ in self.get_intp_tensors(preact_only=preact_only)
+            if fnmatch_any(name, intp_patterns)
+        }
         # TODO - add a filter for name
 
     def predict(self, seq, batch_size=256):
-        """Convert to dictionary
-        """
+        """Convert to dictionary"""
         # Do we need bias?
-        if not isinstance(seq, dict) and not isinstance(seq, list) and len(self.model.inputs) > 1:
-            seq = {'seq': seq, **self.neutral_bias_inputs(len(seq), seqlen=seq.shape[1])}
+        if (
+            not isinstance(seq, dict)
+            and not isinstance(seq, list)
+            and len(self.model.inputs) > 1
+        ):
+            seq = {
+                "seq": seq,
+                **self.neutral_bias_inputs(len(seq), seqlen=seq.shape[1]),
+            }
 
         if batch_size is None:
             preds = self.model.predict_on_batch(seq)
         else:
             preds = self.model.predict(seq, batch_size=batch_size)
-        return {k: postproc_fn(v) if postproc_fn is not None else v
-                for k, v, postproc_fn in zip(self.target_names, preds, self.postproc_fns)}
+        return {
+            k: postproc_fn(v) if postproc_fn is not None else v
+            for k, v, postproc_fn in zip(self.target_names, preds, self.postproc_fns)
+        }
 
-    def evaluate(self, dataset,
-                 eval_metric=None,
-                 num_workers=8,
-                 batch_size=256):
+    def evaluate(self, dataset, eval_metric=None, num_workers=8, batch_size=256):
         lpreds = []
         llabels = []
-        for inputs, targets in tqdm(dataset.batch_train_iter(cycle=False,
-                                                             num_workers=num_workers,
-                                                             batch_size=batch_size),
-                                    total=len(dataset) // batch_size
-                                    ):
+        for inputs, targets in tqdm(
+            dataset.batch_train_iter(
+                cycle=False, num_workers=num_workers, batch_size=batch_size
+            ),
+            total=len(dataset) // batch_size,
+        ):
             assert isinstance(targets, dict)
             target_keys = list(targets)
             llabels.append(deepcopy(targets))
-            bpreds = {k: v for k, v in self.predict(inputs, batch_size=None).items()
-                      if k in target_keys}  # keep only the target key predictions
+            bpreds = {
+                k: v
+                for k, v in self.predict(inputs, batch_size=None).items()
+                if k in target_keys
+            }  # keep only the target key predictions
             lpreds.append(bpreds)
             del inputs
             del targets
@@ -317,40 +348,40 @@ class SeqModel:
                     if target_name not in labels:
                         print(f"Target {target_name} not found. Skipping evaluation")
                         continue
-                    res = head.metric(labels[target_name],
-                                      preds[target_name])
+                    res = head.metric(labels[target_name], preds[target_name])
                     out[target_name] = res
-                    metrics_dict = flatten(res, separator='/')
+                    metrics_dict = flatten(res, separator="/")
                     for k, v in metrics_dict.items():
-                        task_avg_tape[head.target_name.replace("{task}", "avg") + "/" + k].append(v)
+                        task_avg_tape[
+                            head.target_name.replace("{task}", "avg") + "/" + k
+                        ].append(v)
             for k, v in task_avg_tape.items():
                 # get the average
                 out[k] = mean(v)
 
         # flatten everything
-        out = flatten(out, separator='/')
+        out = flatten(out, separator="/")
         return out
 
     def save(self, file_path):
-        """Save model to a file
-        """
+        """Save model to a file"""
         from bpnet.utils import write_pkl, SerializableLock
+
         # fix the serialization of _OPERATIVE_CONFIG_LOCK
         gin.config._OPERATIVE_CONFIG_LOCK = SerializableLock()
         write_pkl(self, file_path)
 
     @classmethod
     def load(cls, file_path):
-        """Load model from a file
-        """
+        """Load model from a file"""
         from bpnet.utils import read_pkl
+
         return read_pkl(file_path)
 
     @classmethod
     def from_mdir(cls, model_dir):
-        """Load the model from pkl
-        """
-        return cls.load(os.path.join(model_dir, 'seq_model.pkl'))
+        """Load the model from pkl"""
+        return cls.load(os.path.join(model_dir, "seq_model.pkl"))
 
 
 # avoid the decorator so that we can pickle it

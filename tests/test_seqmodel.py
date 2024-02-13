@@ -1,10 +1,10 @@
 """Test sequence model
 """
-from bpnet.seqmodel import SeqModel
-from bpnet.heads import ScalarHead, BinaryClassificationHead, ProfileHead
 import numpy as np
-from tensorflow import keras
-import keras.layers as kl
+import tensorflow.keras.layers as kl
+
+from bpnet.heads import ScalarHead, BinaryClassificationHead, ProfileHead
+from bpnet.seqmodel import SeqModel
 
 
 class TopDense:
@@ -43,7 +43,7 @@ class BaseNet:
 
 
 def test_interpret_wo_bias():
-    from bpnet.metrics import RegressionMetrics, ClassificationMetrics, PeakPredictionProfileMetric
+    from bpnet.metrics import RegressionMetrics, PeakPredictionProfileMetric
     from concise.preprocessing import encodeDNA
     # test the model
     seqs = encodeDNA(['ACAGA'] * 100)
@@ -57,7 +57,6 @@ def test_interpret_wo_bias():
                "a/profile": 1 + np.ceil(np.abs(np.random.randn(100, 5, 2))),
                }
 
-    import keras.backend as K
     # K.clear_session()
     # use bias
     m = SeqModel(

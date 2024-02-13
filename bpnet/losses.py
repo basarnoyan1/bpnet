@@ -9,6 +9,8 @@ import tensorflow_probability as tfp
 from concise.utils.helper import get_from_module
 
 tf.compat.v1.disable_eager_execution()
+
+
 @gin.configurable
 def multinomial_nll(true_counts, logits):
     """Compute the multinomial negative log-likelihood along the sequence (axis=1)

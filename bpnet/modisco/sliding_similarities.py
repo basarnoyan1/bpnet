@@ -102,7 +102,7 @@ def parallel_sliding_continousjaccard(qa, ta, pad_mode=None, n_jobs=10, verbose=
 # PWM scanning
 
 
-def sliding_dotproduct(qa, ta, pad_mode=None):
+def sliding_dotproduct(qa, ta):
     """'convolution' implemented in numpy with valid padding
     """
     if qa.ndim < ta.ndim:
@@ -125,7 +125,7 @@ def sliding_kl_divergence(qa, ta, kind='simmetric'):
       ta: target array which gets scanned by qa of shape (..., target_seqlen, channels)
       kind: either qt, tq or simmetric: qt -> KL(qa, ta),  tq -> KL(tq, qa)
         simmetric -> (KL(qa, ta) + KL(ta, qa)) / 2
-      pad: if not None, pad to achieve same padding. pad can be a constant value
+      #pad: if not None, pad to achieve same padding. pad can be a constant value
         mean, median, symmetric
 
     Returns:
@@ -204,9 +204,12 @@ def sliding_similarity(qa, ta, metric='continousjaccard', pad_mode=None, n_jobs=
 # --------------------------------------------
 # Example on how to implement pwm scanning using
 #
-def pssm_scan(pwm, seqs, background_probs=[0.27, 0.23, 0.23, 0.27], pad_mode='median', n_jobs=10, verbose=True):
+def pssm_scan(pwm, seqs, background_probs=None, pad_mode='median', n_jobs=10, verbose=True):
     """
     """
+    if background_probs is None:
+        background_probs = [0.27, 0.23, 0.23, 0.27]
+
     def pwm2pssm(arr, background_probs):
         """Convert pwm array to pssm array
         pwm means that rows sum to one

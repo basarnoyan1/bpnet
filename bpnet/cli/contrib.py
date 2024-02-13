@@ -1,22 +1,24 @@
 """Module containing code for contribution scoring
 """
+import json
+import logging
+import os
+from pathlib import Path
+
+import h5py
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from tqdm import tqdm
-import json
-from argh.decorators import aliases, named, arg
-import os
-import warnings
+from argh.decorators import named, arg
 from kipoi.readers import HDF5Reader
 from kipoi.writers import HDF5BatchWriter
-from bpnet.seqmodel import SeqModel
+from tqdm import tqdm
+
 from bpnet.dataspecs import DataSpec
 from bpnet.functions import mean
 from bpnet.preproc import onehot_dinucl_shuffle
+from bpnet.seqmodel import SeqModel
 from bpnet.utils import add_file_logging, fnmatch_any, create_tf_session, read_json
-import h5py
-import logging
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 

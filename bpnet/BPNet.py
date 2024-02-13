@@ -500,17 +500,17 @@ class BPNetSeqModel:
                 bw_preds_pos.addHeader(genome)
                 bws[task][feat] = bw_preds_pos
 
-        def add_entry(bw, arr, interval, start_idx=0):
+        def add_entry(bw, arr, interval, _start_idx=0):
             """Macro for adding an entry to the bigwig file
 
             Args:
               bw: pyBigWig file handle
               arr: 1-dimensional numpy array
               interval: genomic interval pybedtools.Interval
-              start_idx: how many starting values in the array to skip
+              _start_idx: how many starting values in the array to skip
             """
             assert arr.ndim == 1
-            assert start_idx < len(arr)
+            assert _start_idx < len(arr)
 
             if interval.stop - interval.start != len(arr):
                 logger.warning(
@@ -520,15 +520,15 @@ class BPNetSeqModel:
                 return
             bw.addEntries(
                 interval.chrom,
-                interval.start + start_idx,
-                values=arr[start_idx:],
+                interval.start + _start_idx,
+                values=arr[_start_idx:],
                 span=1,
                 step=1,
             )
 
-        def to_1d_contrib(hyp_contrib, seq):
+        def to_1d_contrib(_hyp_contrib, _seq):
             # mask the hyp_contrib + add them up
-            return (hyp_contrib * seq).sum(axis=-1)
+            return (_hyp_contrib * _seq).sum(axis=-1)
 
         # interval logic to handle overlapping intervals
         #   assumption: all intervals are sorted w.r.t the start coordinate

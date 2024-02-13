@@ -5,16 +5,20 @@ from concise.layers import SplineWeight1D
 import gin
 
 tf.compat.v1.disable_eager_execution()
+
+
 @gin.configurable
 class GlobalAvgPoolFCN:
 
-    def __init__(self,
-                 n_tasks=1,
-                 dropout=0,
-                 hidden=None,
-                 dropout_hidden=0,
-                 n_splines=0,
-                 batchnorm=False):
+    def __init__(
+        self,
+        n_tasks=1,
+        dropout=0,
+        hidden=None,
+        dropout_hidden=0,
+        n_splines=0,
+        batchnorm=False,
+    ):
         self.n_tasks = n_tasks
         self.dropout = dropout
         self.dropout_hidden = dropout_hidden
@@ -29,8 +33,7 @@ class GlobalAvgPoolFCN:
         else:
             # Spline-transformation for the position aggregation
             # This allows to up-weight positions in the middle
-            x = SplineWeight1D(n_bases=self.n_splines,
-                               share_splines=True)(x)
+            x = SplineWeight1D(n_bases=self.n_splines, share_splines=True)(x)
             x = kl.GlobalAvgPool1D()(x)
 
         if self.dropout:
@@ -40,7 +43,7 @@ class GlobalAvgPoolFCN:
         for h in self.hidden:
             if self.batchnorm:
                 x = kl.BatchNormalization()(x)
-            x = kl.Dense(h, activation='relu')(x)
+            x = kl.Dense(h, activation="relu")(x)
             if self.dropout_hidden:
                 x = kl.Dropout(self.dropout_hidden)(x)
 
@@ -54,12 +57,9 @@ class GlobalAvgPoolFCN:
 @gin.configurable
 class FCN:
 
-    def __init__(self,
-                 n_tasks=1,
-                 hidden=None,
-                 dropout=0,
-                 dropout_hidden=0,
-                 batchnorm=False):
+    def __init__(
+        self, n_tasks=1, hidden=None, dropout=0, dropout_hidden=0, batchnorm=False
+    ):
         self.n_tasks = n_tasks
         self.dropout = dropout
         self.dropout_hidden = dropout_hidden
@@ -74,7 +74,7 @@ class FCN:
         for h in self.hidden:
             if self.batchnorm:
                 x = kl.BatchNormalization()(x)
-            x = kl.Dense(h, activation='relu')(x)
+            x = kl.Dense(h, activation="relu")(x)
             if self.dropout_hidden:
                 x = kl.Dropout(self.dropout_hidden)(x)
 
@@ -92,13 +92,16 @@ class DilatedConv1D:
     - add_pointwise -> if True, add a 1by1 conv right after the first conv
     """
 
-    def __init__(self, filters=21,
-                 conv1_kernel_size=25,
-                 n_dil_layers=6,
-                 skip_type='residual',  # or 'dense', None
-                 padding='same',
-                 batchnorm=False,
-                 add_pointwise=False):
+    def __init__(
+        self,
+        filters=21,
+        conv1_kernel_size=25,
+        n_dil_layers=6,
+        skip_type="residual",  # or 'dense', None
+        padding="same",
+        batchnorm=False,
+        add_pointwise=False,
+    ):
         self.filters = filters
         self.conv1_kernel_size = conv1_kernel_size
         self.n_dil_layers = n_dil_layers
@@ -108,19 +111,19 @@ class DilatedConv1D:
         self.add_pointwise = add_pointwise
 
     def __call__(self, inp):
-        """inp = (None, 4)
-        """
-        first_conv = kl.Conv1D(self.filters,
-                               kernel_size=self.conv1_kernel_size,
-                               padding='same',
-                               activation='relu')(inp)
+        """inp = (None, 4)"""
+        first_conv = kl.Conv1D(
+            self.filters,
+            kernel_size=self.conv1_kernel_size,
+            padding="same",
+            activation="relu",
+        )(inp)
         if self.add_pointwise:
             if self.batchnorm:
                 first_conv = kl.BatchNormalization()(first_conv)
-            first_conv = kl.Conv1D(self.filters,
-                                   kernel_size=1,
-                                   padding='same',
-                                   activation='relu')(first_conv)
+            first_conv = kl.Conv1D(
+                self.filters, kernel_size=1, padding="same", activation="relu"
+            )(first_conv)
 
         prev_layer = first_conv
         for i in range(1, self.n_dil_layers + 1):
@@ -128,39 +131,44 @@ class DilatedConv1D:
                 x = kl.BatchNormalization()(prev_layer)
             else:
                 x = prev_layer
-            conv_output = kl.Conv1D(self.filters, kernel_size=3, padding='same',
-                                    activation='relu', dilation_rate=2**i)(x)
+            conv_output = kl.Conv1D(
+                self.filters,
+                kernel_size=3,
+                padding="same",
+                activation="relu",
+                dilation_rate=2**i,
+            )(x)
 
             # skip connections
             if self.skip_type is None:
                 prev_layer = conv_output
-            elif self.skip_type == 'residual':
+            elif self.skip_type == "residual":
                 prev_layer = kl.add([prev_layer, conv_output])
-            elif self.skip_type == 'dense':
+            elif self.skip_type == "dense":
                 prev_layer = kl.concatenate([prev_layer, conv_output])
             else:
                 raise ValueError("skip_type needs to be 'add' or 'concat' or None")
 
         combined_conv = prev_layer
 
-        if self.padding == 'valid':
+        if self.padding == "valid":
             # Trim the output to only valid sizes
             # (e.g. essentially doing valid padding with skip-connections)
-            combined_conv = kl.Cropping1D(cropping=-self.get_len_change() // 2)(combined_conv)
+            combined_conv = kl.Cropping1D(cropping=-self.get_len_change() // 2)(
+                combined_conv
+            )
 
         # add one more layer in between for densly connected layers to reduce the
         # spatial dimension
-        if self.skip_type == 'dense':
-            combined_conv = kl.Conv1D(self.filters,
-                                      kernel_size=1,
-                                      padding='same',
-                                      activation='relu')(combined_conv)
+        if self.skip_type == "dense":
+            combined_conv = kl.Conv1D(
+                self.filters, kernel_size=1, padding="same", activation="relu"
+            )(combined_conv)
         return combined_conv
 
     def get_len_change(self):
-        """How much will the length change
-        """
-        if self.padding == 'same':
+        """How much will the length change"""
+        if self.padding == "same":
             return 0
         else:
             d = 0
@@ -174,11 +182,15 @@ class DilatedConv1D:
 
 @gin.configurable
 class DeConv1D:
-    def __init__(self, filters, n_tasks,
-                 tconv_kernel_size=25,
-                 padding='same',
-                 n_hidden=0,
-                 batchnorm=False):
+    def __init__(
+        self,
+        filters,
+        n_tasks,
+        tconv_kernel_size=25,
+        padding="same",
+        n_hidden=0,
+        batchnorm=False,
+    ):
         self.filters = filters
         self.n_tasks = n_tasks
         self.tconv_kernel_size = tconv_kernel_size
@@ -192,32 +204,35 @@ class DeConv1D:
         for i in range(self.n_hidden):
             if self.batchnorm:
                 x = kl.BatchNormalization()(x)
-            x = kl.Conv1D(self.filters,
-                          kernel_size=1,
-                          padding='same',  # anyway doesn't matter
-                          activation='relu')(x)
+            x = kl.Conv1D(
+                self.filters,
+                kernel_size=1,
+                padding="same",  # anyway doesn't matter
+                activation="relu",
+            )(x)
 
         # single de-conv layer
         x = kl.Reshape((-1, 1, self.filters))(x)
         if self.batchnorm:
             x = kl.BatchNormalization()(x)
-        x = kl.Conv2DTranspose(self.n_tasks, kernel_size=(self.tconv_kernel_size, 1), padding='same')(x)
+        x = kl.Conv2DTranspose(
+            self.n_tasks, kernel_size=(self.tconv_kernel_size, 1), padding="same"
+        )(x)
         x = kl.Reshape((-1, self.n_tasks))(x)
 
         # TODO - allow multiple de-conv layers
 
-        if self.padding == 'valid':
+        if self.padding == "valid":
             # crop to make it translationally invariant
             x = kl.Cropping1D(cropping=-self.get_len_change() // 2)(x)
         return x
 
     def get_len_change(self):
-        """How much will the length change
-        """
-        if self.padding == 'same':
+        """How much will the length change"""
+        if self.padding == "same":
             return 0
         else:
-            return - 2 * (self.tconv_kernel_size // 2)
+            return -2 * (self.tconv_kernel_size // 2)
 
 
 @gin.configurable
@@ -237,13 +252,15 @@ class MovingAverages:
                 # no need to perform the convolution
                 out.append(x)
             else:
-                conv = kl.SeparableConv1D(1,
-                                          kernel_size=window_size,
-                                          padding='same',
-                                          depthwise_initializer='ones',
-                                          pointwise_initializer='ones',
-                                          use_bias=False,
-                                          trainable=False)
+                conv = kl.SeparableConv1D(
+                    1,
+                    kernel_size=window_size,
+                    padding="same",
+                    depthwise_initializer="ones",
+                    pointwise_initializer="ones",
+                    use_bias=False,
+                    trainable=False,
+                )
                 out.append(conv(x))
         # (batch, seqlen, len(window_sizes))
         binp = kl.concatenate(out)

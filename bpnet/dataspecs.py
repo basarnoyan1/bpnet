@@ -124,8 +124,7 @@ class DataSpec(RelatedLoadSaveMixin):
     def list_all_files(self, include_peaks=False):
         """List all file paths specified
         """
-        files = []
-        files.append(self.fasta_file)
+        files = [self.fasta_file]
         for ts in self.task_specs.values():
             files += ts.list_all_files(include_peaks=include_peaks)
 

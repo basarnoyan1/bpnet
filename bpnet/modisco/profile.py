@@ -1,11 +1,12 @@
-import pandas as pd
-from bpnet.preproc import resize_interval
-from tqdm import tqdm
-import numpy as np
 from collections import OrderedDict
 
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+
+from bpnet.modisco.core import resize_seqlets
+from bpnet.modisco.pattern_instances import dfi2seqlets
 from bpnet.plot.profiles import extract_signal
-from bpnet.modisco.core import dfi2seqlets, resize_seqlets, resize_seqlets
 from bpnet.simulate import profile_sim_metrics
 from bpnet.stats import quantile_norm
 

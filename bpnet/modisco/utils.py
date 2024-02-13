@@ -1,11 +1,7 @@
 """Small helper-functions for used by modisco classes
 """
-import pandas as pd
 import numpy as np
-from kipoi.readers import HDF5Reader
-from bpnet.cli.contrib import ContribFile
-from bpnet.functions import mean
-import warnings
+import pandas as pd
 
 
 def bootstrap_mean(x, n=100):

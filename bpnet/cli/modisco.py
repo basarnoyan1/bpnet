@@ -1,6 +1,7 @@
 """
 Run modisco
 """
+
 import logging
 import matplotlib.pyplot as plt
 from argh.decorators import named, arg
@@ -10,7 +11,14 @@ import os
 from collections import OrderedDict
 from tqdm import tqdm
 from pathlib import Path
-from bpnet.utils import write_pkl, render_ipynb, remove_exists, add_file_logging, create_tf_session, pd_first_cols
+from bpnet.utils import (
+    write_pkl,
+    render_ipynb,
+    remove_exists,
+    add_file_logging,
+    create_tf_session,
+    pd_first_cols,
+)
 from bpnet.cli.contrib import ContribFile
 from bpnet.cli.train import _get_gin_files, log_gin_config
 from bpnet.modisco.files import ModiscoFile
@@ -18,6 +26,7 @@ from bpnet.utils import write_json, read_json
 import gin
 import numpy as np
 import inspect
+
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 this_path = os.path.dirname(os.path.abspath(filename))
 
@@ -45,15 +54,18 @@ def load_ranges(modisco_dir):
 
 
 def load_contrib_type(modisco_kwargs):
-    """Load the contrib_wildcard contribution score
-    """
+    """Load the contrib_wildcard contribution score"""
     # use the first one as the default
-    contrib_types = [wildcard.split("/", maxsplit=1)[1]
-                     for wildcard in modisco_kwargs['contrib_wildcard'].split(",")]
+    contrib_types = [
+        wildcard.split("/", maxsplit=1)[1]
+        for wildcard in modisco_kwargs["contrib_wildcard"].split(",")
+    ]
     if not len(set(contrib_types)):
-        contrib_wildcard = modisco_kwargs['contrib_wildcard']
-        logger.warn(f"contrib_wildcard: {contrib_wildcard} contains multiple contrib_types. "
-                    "Current code can by default only handle a single one.")
+        contrib_wildcard = modisco_kwargs["contrib_wildcard"]
+        logger.warning(
+            f"contrib_wildcard: {contrib_wildcard} contains multiple contrib_types. "
+            "Current code can by default only handle a single one."
+        )
     contrib_type = contrib_types[0]
     return contrib_type
 
@@ -68,9 +80,12 @@ def get_nonredundant_example_idx(ranges, width=200):
     """
     from pybedtools import BedTool
     from bpnet.preproc import resize_interval
+
     # 1. resize ranges
-    ranges['example_idx'] = np.arange(len(ranges))  # make sure
-    r = ranges[['chrom', 'start', 'end', 'example_idx']]  # add also the strand information
+    ranges["example_idx"] = np.arange(len(ranges))  # make sure
+    r = ranges[
+        ["chrom", "start", "end", "example_idx"]
+    ]  # add also the strand information
     if width is not None:
         r = resize_interval(r, width, ignore_strand=True)
 
@@ -80,33 +95,46 @@ def get_nonredundant_example_idx(ranges, width=200):
     df = df[(df.end - df.start) < width * 2]
 
     r_overlaps = bt.intersect(BedTool.from_dataframe(df), wb=True).to_dataframe()
-    keep_idx = r_overlaps.drop_duplicates(['score', 'strand', 'thickStart'])['name'].astype(int)
+    keep_idx = r_overlaps.drop_duplicates(["score", "strand", "thickStart"])[
+        "name"
+    ].astype(int)
 
     return keep_idx
 
 
 # --------------------------------------------
 @gin.configurable
-def modisco_run(output_path,  # specified by bpnet_modisco_run
-                task_names,
-                contrib_scores,
-                hypothetical_contribs,
-                one_hot,
-                null_per_pos_scores,
-                # specified by gin-config
-                workflow=gin.REQUIRED,  # TfModiscoWorkflow
-                report=None):  # reports to use
+def modisco_run(
+    output_path,  # specified by bpnet_modisco_run
+    task_names,
+    contrib_scores,
+    hypothetical_contribs,
+    one_hot,
+    null_per_pos_scores,
+    # specified by gin-config
+    workflow=gin.REQUIRED,  # TfModiscoWorkflow
+    report=None,
+):  # reports to use
     """
     Args:
+      output_path:
+      task_names:
+      contrib_scores:
+      hypothetical_contribs:
+      one_hot:
+      null_per_pos_scores:
       workflow: TfModiscoWorkflow objects
       report: path to the report ipynb
     """
     import h5py
-    modisco_results = workflow(task_names=task_names,
-                               contrib_scores=contrib_scores,
-                               hypothetical_contribs=hypothetical_contribs,
-                               one_hot=one_hot,
-                               null_per_pos_scores=null_per_pos_scores)
+
+    modisco_results = workflow(
+        task_names=task_names,
+        contrib_scores=contrib_scores,
+        hypothetical_contribs=hypothetical_contribs,
+        one_hot=one_hot,
+        null_per_pos_scores=null_per_pos_scores,
+    )
     # save the results
     logger.info(f"Saving modisco file to {output_path}")
     grp = h5py.File(output_path)
@@ -122,83 +150,93 @@ def modisco_run(output_path,  # specified by bpnet_modisco_run
 
         logger.info("Running the report")
         # Run the jupyter notebook
-        report_path = os.path.join(os.path.dirname(output_path), os.path.basename(report))
-        render_ipynb(report,
-                     report_path,
-                     params=dict(modisco_file=output_path,
-                                 modisco_dir=os.path.dirname(output_path)))
+        report_path = os.path.join(
+            os.path.dirname(output_path), os.path.basename(report)
+        )
+        render_ipynb(
+            report,
+            report_path,
+            params=dict(
+                modisco_file=output_path, modisco_dir=os.path.dirname(output_path)
+            ),
+        )
         logger.info(f"Done rendering the report file: {report_path}")
 
 
 @named("modisco-run")
-@arg('contrib_file',
-     help='path to the hdf5 file containing contribution scores')
-@arg('output_dir',
-     help='output file directory')
-@arg('--null-contrib-file',
-     help='Path to the null contribution scores')
-@arg('--premade',
-     help='pre-made config file specifying modisco hyper-paramters to use.')
-@arg('--config',
-     help='gin config file path(s) specifying the modisco workflow parameters.'
-     ' Parameters specified here override the --premade parameters. Multiple '
-     'config files can be separated by comma separation (i.e. --config=file1.gin,file2.gin)')
-@arg('--override',
-     help='semi-colon separated list of additional gin bindings to use')
-@arg("--contrib-wildcard",
-     help="Wildcard of the contribution scores to use for running modisco. For example, */profile/wn computes"
-     "uses the profile contribution scores for all the tasks (*) using the wn normalization (see bpnet.heads.py)."
-     "*/counts/pre-act uses the total count contribution scores for all tasks w.r.t. the pre-activation output "
-     "of prediction heads. Multiple wildcards can be by comma-separating them.")
-@arg('--only-task-regions',
-     help='If specified, only the contribution scores from regions corresponding to the tasks specified '
-     'in --contrib-wildcard will be used. For example, if dataspec.yml contained Oct4 and Sox2 peaks when '
-     'generating the contrib_file and `--contrib-wildcard=Oct4/profile/wn`, then modisco will be only ran '
-     'in the Oct4 peaks. If `--contrib-wildcard=Oct4/profile/wn,Sox2/profile/wn` or `--contrib-wildcard=*/profile/wn`, '
-     'then peaks of both Sox2 and Oct4 will be used.')
-@arg('--filter-npy',
-     help='File path to the .npz file containing a boolean one-dimensional numpy array of the same length'
-     'as the contrib_file. Modisco will be ran on a subset of regions in the contrib_file '
-     'where this array has value=True.')
-@arg('--exclude-chr',
-     help='Comma-separated list of chromosomes to exclude.')
-@arg('--num-workers',
-     help='number of workers to use in parallel for running modisco')
-@arg('--gpu',
-     help='which gpu to use. Example: gpu=1')
-@arg('--memfrac-gpu',
-     help='what fraction of the GPU memory to use')
-@arg('--overwrite',
-     help='If True, the output files will be overwritten if they already exist.')
-def bpnet_modisco_run(contrib_file,
-                      output_dir,
-                      null_contrib_file=None,
-                      premade='modisco-50k',
-                      config=None,
-                      override='',
-                      contrib_wildcard="*/profile/wn",  # on which contribution scores to run modisco
-                      only_task_regions=False,
-                      filter_npy=None,
-                      exclude_chr="",
-                      num_workers=10,
-                      gpu=None,  # no need to use a gpu by default
-                      memfrac_gpu=0.45,
-                      overwrite=False,
-                      ):
+@arg("contrib_file", help="path to the hdf5 file containing contribution scores")
+@arg("output_dir", help="output file directory")
+@arg("--null-contrib-file", help="Path to the null contribution scores")
+@arg(
+    "--premade", help="pre-made config file specifying modisco hyper-paramters to use."
+)
+@arg(
+    "--config",
+    help="gin config file path(s) specifying the modisco workflow parameters."
+    " Parameters specified here override the --premade parameters. Multiple "
+    "config files can be separated by comma separation (i.e. --config=file1.gin,file2.gin)",
+)
+@arg("--override", help="semi-colon separated list of additional gin bindings to use")
+@arg(
+    "--contrib-wildcard",
+    help="Wildcard of the contribution scores to use for running modisco. For example, */profile/wn computes"
+    "uses the profile contribution scores for all the tasks (*) using the wn normalization (see bpnet.heads.py)."
+    "*/counts/pre-act uses the total count contribution scores for all tasks w.r.t. the pre-activation output "
+    "of prediction heads. Multiple wildcards can be by comma-separating them.",
+)
+@arg(
+    "--only-task-regions",
+    help="If specified, only the contribution scores from regions corresponding to the tasks specified "
+    "in --contrib-wildcard will be used. For example, if dataspec.yml contained Oct4 and Sox2 peaks when "
+    "generating the contrib_file and `--contrib-wildcard=Oct4/profile/wn`, then modisco will be only ran "
+    "in the Oct4 peaks. If `--contrib-wildcard=Oct4/profile/wn,Sox2/profile/wn` or `--contrib-wildcard=*/profile/wn`, "
+    "then peaks of both Sox2 and Oct4 will be used.",
+)
+@arg(
+    "--filter-npy",
+    help="File path to the .npz file containing a boolean one-dimensional numpy array of the same length"
+    "as the contrib_file. Modisco will be ran on a subset of regions in the contrib_file "
+    "where this array has value=True.",
+)
+@arg("--exclude-chr", help="Comma-separated list of chromosomes to exclude.")
+@arg("--num-workers", help="number of workers to use in parallel for running modisco")
+@arg("--gpu", help="which gpu to use. Example: gpu=1")
+@arg("--memfrac-gpu", help="what fraction of the GPU memory to use")
+@arg(
+    "--overwrite",
+    help="If True, the output files will be overwritten if they already exist.",
+)
+def bpnet_modisco_run(
+    contrib_file,
+    output_dir,
+    null_contrib_file=None,
+    premade="modisco-50k",
+    config=None,
+    override="",
+    contrib_wildcard="*/profile/wn",  # on which contribution scores to run modisco
+    only_task_regions=False,
+    filter_npy=None,
+    exclude_chr="",
+    num_workers=10,
+    gpu=None,  # no need to use a gpu by default
+    memfrac_gpu=0.45,
+    overwrite=False,
+):
     """Run TF-MoDISco on the contribution scores stored in the contribution score file
     generated by `bpnet contrib`.
     """
-    add_file_logging(output_dir, logger, 'modisco-run')
+    add_file_logging(output_dir, logger, "modisco-run")
     if gpu is not None:
         logger.info(f"Using gpu: {gpu}, memory fraction: {memfrac_gpu}")
         create_tf_session(gpu, per_process_gpu_memory_fraction=memfrac_gpu)
     else:
         # Don't use any GPU's
-        os.environ['CUDA_VISIBLE_DEVICES'] = ''
-        os.environ['MKL_THREADING_LAYER'] = 'GNU'
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        os.environ["MKL_THREADING_LAYER"] = "GNU"
 
     import modisco
-    assert '/' in contrib_wildcard
+
+    assert "/" in contrib_wildcard
 
     if filter_npy is not None:
         filter_npy = os.path.abspath(str(filter_npy))
@@ -208,41 +246,49 @@ def bpnet_modisco_run(contrib_file,
     # setup output file paths
     output_path = os.path.abspath(os.path.join(output_dir, "modisco.h5"))
     remove_exists(output_path, overwrite=overwrite)
-    output_filter_npy = os.path.abspath(os.path.join(output_dir, 'modisco-run.subset-contrib-file.npy'))
+    output_filter_npy = os.path.abspath(
+        os.path.join(output_dir, "modisco-run.subset-contrib-file.npy")
+    )
     remove_exists(output_filter_npy, overwrite=overwrite)
     kwargs_json_file = os.path.join(output_dir, "modisco-run.kwargs.json")
     remove_exists(kwargs_json_file, overwrite=overwrite)
     if config is not None:
-        config_output_file = os.path.join(output_dir, 'modisco-run.input-config.gin')
+        config_output_file = os.path.join(output_dir, "modisco-run.input-config.gin")
         remove_exists(config_output_file, overwrite=overwrite)
         shutil.copyfile(config, config_output_file)
 
     # save the hyper-parameters
-    write_json(dict(contrib_file=os.path.abspath(contrib_file),
-                    output_dir=str(output_dir),
-                    null_contrib_file=null_contrib_file,
-                    config=str(config),
-                    override=override,
-                    contrib_wildcard=contrib_wildcard,
-                    only_task_regions=only_task_regions,
-                    filter_npy=str(filter_npy),
-                    exclude_chr=exclude_chr,
-                    num_workers=num_workers,
-                    overwrite=overwrite,
-                    output_filter_npy=output_filter_npy,
-                    gpu=gpu,
-                    memfrac_gpu=memfrac_gpu),
-               kwargs_json_file)
+    write_json(
+        dict(
+            contrib_file=os.path.abspath(contrib_file),
+            output_dir=str(output_dir),
+            null_contrib_file=null_contrib_file,
+            config=str(config),
+            override=override,
+            contrib_wildcard=contrib_wildcard,
+            only_task_regions=only_task_regions,
+            filter_npy=str(filter_npy),
+            exclude_chr=exclude_chr,
+            num_workers=num_workers,
+            overwrite=overwrite,
+            output_filter_npy=output_filter_npy,
+            gpu=gpu,
+            memfrac_gpu=memfrac_gpu,
+        ),
+        kwargs_json_file,
+    )
 
     # setup the gin config using premade, config and override
-    cli_bindings = [f'num_workers={num_workers}']
-    gin.parse_config_files_and_bindings(_get_gin_files(premade, config),
-                                        bindings=cli_bindings + override.split(";"),
-                                        # NOTE: custom files were inserted right after
-                                        # ther user's config file and before the `override`
-                                        # parameters specified at the command-line
-                                        skip_unknown=False)
-    log_gin_config(output_dir, prefix='modisco-run.')
+    cli_bindings = [f"num_workers={num_workers}"]
+    gin.parse_config_files_and_bindings(
+        _get_gin_files(premade, config),
+        bindings=cli_bindings + override.split(";"),
+        # NOTE: custom files were inserted right after
+        # ther user's config file and before the `override`
+        # parameters specified at the command-line
+        skip_unknown=False,
+    )
+    log_gin_config(output_dir, prefix="modisco-run.")
     # --------------------------------------------
 
     # load the contribution file
@@ -254,7 +300,7 @@ def bpnet_modisco_run(contrib_file,
     subset_tasks = set()
     for w in contrib_wildcard.split(","):
         task, head, head_summary = w.split("/")
-        if task == '*':
+        if task == "*":
             subset_tasks = None
         else:
             if task not in tasks:
@@ -273,27 +319,41 @@ def bpnet_modisco_run(contrib_file,
     # --only-task-regions
     if only_task_regions:
         if subset_tasks is None:
-            logger.warn("contrib_wildcard contains all tasks (specified by */<head>/<summary>). Not using --only-task-regions")
-        elif np.all(ranges['interval_from_task'] == ''):
-            raise ValueError("Contribution file wasn't created from multiple set of peaks. "
-                             "E.g. interval_from_task='' for all ranges. Please disable --only-task-regions")
+            logger.warning(
+                "contrib_wildcard contains all tasks (specified by */<head>/<summary>). Not using --only-task-regions"
+            )
+        elif np.all(ranges["interval_from_task"] == ""):
+            raise ValueError(
+                "Contribution file wasn't created from multiple set of peaks. "
+                "E.g. interval_from_task='' for all ranges. Please disable --only-task-regions"
+            )
         else:
             logger.info(f"Subsetting ranges according to `interval_from_task`")
-            include_samples = include_samples & ranges['interval_from_task'].isin(subset_tasks).values
-            logger.info(f"Using {include_samples.sum()} / {len(include_samples)} regions after --only-task-regions subset")
+            include_samples = (
+                include_samples & ranges["interval_from_task"].isin(subset_tasks).values
+            )
+            logger.info(
+                f"Using {include_samples.sum()} / {len(include_samples)} regions after --only-task-regions subset"
+            )
 
     # --exclude-chr
     if exclude_chr:
         logger.info(f"Excluding chromosomes: {exclude_chr}")
-        chromosomes = ranges['chr']
-        include_samples = include_samples & (~pd.Series(chromosomes).isin(exclude_chr)).values
-        logger.info(f"Using {include_samples.sum()} / {len(include_samples)} regions after --exclude-chr subset")
+        chromosomes = ranges["chr"]
+        include_samples = (
+            include_samples & (~pd.Series(chromosomes).isin(exclude_chr)).values
+        )
+        logger.info(
+            f"Using {include_samples.sum()} / {len(include_samples)} regions after --exclude-chr subset"
+        )
 
     # -- filter-npy
     if filter_npy is not None:
         print(f"Loading a filter file from {filter_npy}")
         include_samples = include_samples & np.load(filter_npy)
-        logger.info(f"Using {include_samples.sum()} / {len(include_samples)} regions after --filter-npy subset")
+        logger.info(
+            f"Using {include_samples.sum()} / {len(include_samples)} regions after --filter-npy subset"
+        )
 
     # store the subset-contrib-file.npy
     logger.info(f"Saving the included samples from ContribFile to {output_filter_npy}")
@@ -311,22 +371,24 @@ def bpnet_modisco_run(contrib_file,
     task_names = []
     for w in contrib_wildcard.split(","):
         wc_task, head, head_summary = w.split("/")
-        if task == '*':
+        if task == "*":
             use_tasks = tasks
         else:
             use_tasks = [wc_task]
         for task in use_tasks:
             key = f"{task}/{head}/{head_summary}"
             task_names.append(key)
-            hyp_contrib[key] = cf._subset(cf.data[f'/hyp_contrib/{key}'], idx=idx)
+            hyp_contrib[key] = cf._subset(cf.data[f"/hyp_contrib/{key}"], idx=idx)
     contrib = {k: v * seqs for k, v in hyp_contrib.items()}
 
     if null_contrib_file is not None:
         logger.info(f"Using null-contrib-file: {null_contrib_file}")
         null_cf = ContribFile(null_contrib_file)
         null_seqs = null_cf.get_seq()
-        null_per_pos_scores = {key: null_seqs * null_cf.data[f'/hyp_contrib/{key}'][:]
-                               for key in task_names}
+        null_per_pos_scores = {
+            key: null_seqs * null_cf.data[f"/hyp_contrib/{key}"][:]
+            for key in task_names
+        }
     else:
         # default Null distribution. Requires modisco 5.0
         logger.info(f"Using default null_contrib_scores")
@@ -334,35 +396,43 @@ def bpnet_modisco_run(contrib_file,
 
     # run modisco.
     # NOTE: `workflow` and `report` parameters are provided by gin config files
-    modisco_run(task_names=task_names,
-                output_path=output_path,
-                contrib_scores=contrib,
-                hypothetical_contribs=hyp_contrib,
-                one_hot=seqs,
-                null_per_pos_scores=null_per_pos_scores)
+    modisco_run(
+        task_names=task_names,
+        output_path=output_path,
+        contrib_scores=contrib,
+        hypothetical_contribs=hyp_contrib,
+        one_hot=seqs,
+        null_per_pos_scores=null_per_pos_scores,
+    )
 
-    logger.info(f"bpnet modisco-run finished. modisco.h5 and other files can be found in: {output_dir}")
+    logger.info(
+        f"bpnet modisco-run finished. modisco.h5 and other files can be found in: {output_dir}"
+    )
 
 
-def modisco_plot(modisco_dir,
-                 output_dir,
-                 # filter_npy=None,
-                 # ignore_dist_filter=False,
-                 heatmap_width=200,
-                 figsize=(10, 10), contribsf=None):
+def modisco_plot(
+    modisco_dir,
+    output_dir,
+    # filter_npy=None,
+    # ignore_dist_filter=False,
+    heatmap_width=200,
+    figsize=(10, 10),
+    contribsf=None,
+):
     """Plot the results of a modisco run
 
     Args:
+      heatmap_width:
       modisco_dir: modisco directory
       output_dir: Output directory for writing the results
       figsize: Output figure size
       contribsf: [optional] modisco contribution score file (ContribFile)
     """
-    plt.switch_backend('agg')
-    add_file_logging(output_dir, logger, 'modisco-plot')
+    plt.switch_backend("agg")
+    add_file_logging(output_dir, logger, "modisco-plot")
     from bpnet.plot.vdom import write_heatmap_pngs
     from bpnet.plot.profiles import plot_profiles
-    from bpnet.utils import flatten
+    from kipoi_utils.external.flatten_json import flatten
 
     output_dir = Path(output_dir)
     output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -383,26 +453,32 @@ def modisco_plot(modisco_dir,
     thr_hypothetical_contribs = dict()
     thr_contrib_scores = dict()
     # TODO - generalize this
-    thr_hypothetical_contribs['profile'] = d.get_hyp_contrib()
-    thr_contrib_scores['profile'] = d.get_contrib()
+    thr_hypothetical_contribs["profile"] = d.get_hyp_contrib()
+    thr_contrib_scores["profile"] = d.get_contrib()
 
     tasks = d.get_tasks()
 
     # Count contribution (if it exists)
     if d.contains_contrib_score("counts/pre-act"):
         count_contrib_score = "counts/pre-act"
-        thr_hypothetical_contribs['count'] = d.get_hyp_contrib(contrib_score=count_contrib_score)
-        thr_contrib_scores['count'] = d.get_contrib(contrib_score=count_contrib_score)
+        thr_hypothetical_contribs["count"] = d.get_hyp_contrib(
+            contrib_score=count_contrib_score
+        )
+        thr_contrib_scores["count"] = d.get_contrib(contrib_score=count_contrib_score)
     elif d.contains_contrib_score("count"):
         count_contrib_score = "count"
-        thr_hypothetical_contribs['count'] = d.get_hyp_contrib(contrib_score=count_contrib_score)
-        thr_contrib_scores['count'] = d.get_contrib(contrib_score=count_contrib_score)
+        thr_hypothetical_contribs["count"] = d.get_hyp_contrib(
+            contrib_score=count_contrib_score
+        )
+        thr_contrib_scores["count"] = d.get_contrib(contrib_score=count_contrib_score)
     else:
         # Don't do anything
         pass
 
-    thr_hypothetical_contribs = OrderedDict(flatten(thr_hypothetical_contribs, separator='/'))
-    thr_contrib_scores = OrderedDict(flatten(thr_contrib_scores, separator='/'))
+    thr_hypothetical_contribs = OrderedDict(
+        flatten(thr_hypothetical_contribs, separator="/")
+    )
+    thr_contrib_scores = OrderedDict(flatten(thr_contrib_scores, separator="/"))
     # -------------------------------------------------
 
     all_seqlets = mf.seqlets()
@@ -413,58 +489,64 @@ def modisco_plot(modisco_dir,
 
     # 1. Plots with tracks and contrib scores
     print("Writing results for contribution scores")
-    plot_profiles(all_seqlets,
-                  thr_one_hot,
-                  tracks=tracks,
-                  contribution_scores=thr_contrib_scores,
-                  legend=False,
-                  flip_neg=True,
-                  rotate_y=0,
-                  seq_height=.5,
-                  patterns=all_patterns,
-                  n_bootstrap=100,
-                  fpath_template=str(output_dir / "{pattern}/agg_profile_contribcores"),
-                  mkdir=True,
-                  figsize=figsize)
+    plot_profiles(
+        all_seqlets,
+        thr_one_hot,
+        tracks=tracks,
+        contribution_scores=thr_contrib_scores,
+        legend=False,
+        flip_neg=True,
+        rotate_y=0,
+        seq_height=0.5,
+        patterns=all_patterns,
+        n_bootstrap=100,
+        fpath_template=str(output_dir / "{pattern}/agg_profile_contribcores"),
+        mkdir=True,
+        figsize=figsize,
+    )
 
     # 2. Plots only with hypothetical contrib scores
     print("Writing results for hypothetical contribution scores")
-    plot_profiles(all_seqlets,
-                  thr_one_hot,
-                  tracks={},
-                  contribution_scores=thr_hypothetical_contribs,
-                  legend=False,
-                  flip_neg=True,
-                  rotate_y=0,
-                  seq_height=1,
-                  patterns=all_patterns,
-                  n_bootstrap=100,
-                  fpath_template=str(output_dir / "{pattern}/agg_profile_hypcontribscores"),
-                  figsize=figsize)
+    plot_profiles(
+        all_seqlets,
+        thr_one_hot,
+        tracks={},
+        contribution_scores=thr_hypothetical_contribs,
+        legend=False,
+        flip_neg=True,
+        rotate_y=0,
+        seq_height=1,
+        patterns=all_patterns,
+        n_bootstrap=100,
+        fpath_template=str(output_dir / "{pattern}/agg_profile_hypcontribscores"),
+        figsize=figsize,
+    )
 
     print("Plotting heatmaps")
     for pattern in tqdm(all_patterns):
-        write_heatmap_pngs(all_seqlets[pattern],
-                           d,
-                           tasks,
-                           pattern,
-                           output_dir=str(output_dir / pattern),
-                           resize_width=heatmap_width)
+        write_heatmap_pngs(
+            all_seqlets[pattern],
+            d,
+            tasks,
+            output_dir=str(output_dir / pattern),
+            resize_width=heatmap_width,
+        )
 
     mf.close()
 
 
-def cwm_scan_seqlets(modisco_dir,
-                     output_file,
-                     trim_frac=0.08,
-                     num_workers=1,
-                     contribsf=None,
-                     verbose=False):
-    """Compute the cwm scanning scores of the original modisco seqlets
-    """
-    from bpnet.modisco.table import ModiscoData
+def cwm_scan_seqlets(
+    modisco_dir,
+    output_file,
+    trim_frac=0.08,
+    num_workers=1,
+    contribsf=None,
+    verbose=False,
+):
+    """Compute the cwm scanning scores of the original modisco seqlets"""
+
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    add_file_logging(os.path.dirname(output_file), logger, 'cwm_scan_seqlets')
+    add_file_logging(os.path.dirname(output_file), logger, "cwm_scan_seqlets")
 
     # figure out contrib_wildcard
     mf = ModiscoFile(modisco_dir / "modisco.h5")
@@ -488,11 +570,21 @@ def cwm_scan_seqlets(modisco_dir,
         # to obtain the distribution
         stacked_seqlets = contrib.extract(seqlets)
 
-        match, contribution = pattern.scan_contribution(stacked_seqlets.contrib, hyp_contrib=None, tasks=tasks,
-                                                        n_jobs=num_workers, verbose=False, pad_mode=None)
-        seq_match = pattern.scan_seq(stacked_seqlets.seq, n_jobs=num_workers, verbose=False, pad_mode=None)
+        match, contribution = pattern.scan_contribution(
+            stacked_seqlets.contrib,
+            hyp_contrib=None,
+            tasks=tasks,
+            n_jobs=num_workers,
+            verbose=False,
+            pad_mode=None,
+        )
+        seq_match = pattern.scan_seq(
+            stacked_seqlets.seq, n_jobs=num_workers, verbose=False, pad_mode=None
+        )
 
-        dfm = pattern.get_instances(tasks, match, contribution, seq_match, fdr=1, verbose=verbose, plot=verbose)
+        dfm = pattern.get_instances(
+            tasks, match, contribution, seq_match, fdr=1, verbose=verbose, plot=verbose
+        )
         dfm = dfm[dfm.seq_match > 0]
 
         dfi_list.append(dfm)
@@ -503,68 +595,91 @@ def cwm_scan_seqlets(modisco_dir,
 # TODO - rename centroid_seqlet_matches?
 # TODO - rename pssm to pfm or pwm?
 
-@arg('modisco_dir',
-     help='modisco directory - used to obtain (optionally centroid_seqlet_matches.csv.gz), modisco.h5, contrib-wildcard')
-@arg('output_file',
-     help='Output file path. File format will depend on the file suffix. '
-     'Available suffixes are: .parq (Parquet file), .csv, .csv.gz, .tsv, .tsv.gz, .bed, .bed.gz. '
-     'NOTE: when using .bed or .bed.gz, only the following 7 columns are written: '
-     'chromosome, start, end, pattern, contrib_weighted_p, strand, match_weighted_p')
-@arg('--trim-frac',
-     help='How much to trim the pattern when scanning for motif instances. See also `bpnet.modisco.utils.trim_pssm_idx`')
-@arg('--patterns',
-     help='Comma separated list of patterns for which to run CWM scanning')
-@arg('--filters',
-     help='Filters to apply. Specify empty string `--filters=""` for no filters.')
-@arg('--contrib-file',
-     help='Optional file path to the contribution score file. If not specified, '
-     'the contribution score file used in `bpnet modisco-run` will be used by default.')
-@arg('--add-profile-features',
-     help='Add profile features at the location of motif matches such as the maximum number of counts.')
-@arg('--num-workers',
-     help='Number of workers to use in parallel for cwm scanning.')
-def cwm_scan(modisco_dir,
-             output_file,
-             trim_frac=0.08,
-             patterns='all',
-             filters='match_weighted_p>=.2,contrib_weighted_p>=.01',
-             contrib_file=None,
-             add_profile_features=False,
-             num_workers=10):
-    """Get motif instances via CWM scanning.
-    """
+
+@arg(
+    "modisco_dir",
+    help="modisco directory - used to obtain (optionally centroid_seqlet_matches.csv.gz), modisco.h5, contrib-wildcard",
+)
+@arg(
+    "output_file",
+    help="Output file path. File format will depend on the file suffix. "
+    "Available suffixes are: .parq (Parquet file), .csv, .csv.gz, .tsv, .tsv.gz, .bed, .bed.gz. "
+    "NOTE: when using .bed or .bed.gz, only the following 7 columns are written: "
+    "chromosome, start, end, pattern, contrib_weighted_p, strand, match_weighted_p",
+)
+@arg(
+    "--trim-frac",
+    help="How much to trim the pattern when scanning for motif instances. See also `bpnet.modisco.utils.trim_pssm_idx`",
+)
+@arg(
+    "--patterns", help="Comma separated list of patterns for which to run CWM scanning"
+)
+@arg(
+    "--filters",
+    help='Filters to apply. Specify empty string `--filters=""` for no filters.',
+)
+@arg(
+    "--contrib-file",
+    help="Optional file path to the contribution score file. If not specified, "
+    "the contribution score file used in `bpnet modisco-run` will be used by default.",
+)
+@arg(
+    "--add-profile-features",
+    help="Add profile features at the location of motif matches such as the maximum number of counts.",
+)
+@arg("--num-workers", help="Number of workers to use in parallel for cwm scanning.")
+def cwm_scan(
+    modisco_dir,
+    output_file,
+    trim_frac=0.08,
+    patterns="all",
+    filters="match_weighted_p>=.2,contrib_weighted_p>=.01",
+    contrib_file=None,
+    add_profile_features=False,
+    num_workers=10,
+):
+    """Get motif instances via CWM scanning."""
     from bpnet.modisco.utils import longer_pattern, shorten_pattern
     from bpnet.modisco.pattern_instances import annotate_profile_single
-    add_file_logging(os.path.dirname(output_file), logger, 'cwm-scan')
+
+    add_file_logging(os.path.dirname(output_file), logger, "cwm-scan")
     modisco_dir = Path(modisco_dir)
 
     valid_suffixes = [
-        '.csv',
-        '.csv.gz',
-        '.tsv',
-        '.tsv.gz',
-        '.parq',
-        '.bed',
-        '.bed.gz',
+        ".csv",
+        ".csv.gz",
+        ".tsv",
+        ".tsv.gz",
+        ".parq",
+        ".bed",
+        ".bed.gz",
     ]
     if not any([str(output_file).endswith(suffix) for suffix in valid_suffixes]):
-        raise ValueError(f"output_file doesn't have a valid file suffix. Valid file suffixes are: {valid_suffixes}")
+        raise ValueError(
+            f"output_file doesn't have a valid file suffix. Valid file suffixes are: {valid_suffixes}"
+        )
 
     # Centroid matches path
-    cm_path = modisco_dir / f'cwm-scan-seqlets.trim-frac={trim_frac:.2f}.csv.gz'
+    cm_path = modisco_dir / f"cwm-scan-seqlets.trim-frac={trim_frac:.2f}.csv.gz"
 
     # save the hyper-parameters
-    kwargs_json_file = os.path.join(os.path.dirname(output_file), 'cwm-scan.kwargs.json')
-    write_json(dict(modisco_dir=os.path.abspath(str(contrib_file)),
-                    output_file=str(output_file),
-                    cwm_scan_seqlets_path=str(cm_path),
-                    trim_frac=trim_frac,
-                    patterns=patterns,
-                    filters=filters,
-                    contrib_file=contrib_file,
-                    add_profile_features=add_profile_features,
-                    num_workers=num_workers),
-               str(kwargs_json_file))
+    kwargs_json_file = os.path.join(
+        os.path.dirname(output_file), "cwm-scan.kwargs.json"
+    )
+    write_json(
+        dict(
+            modisco_dir=os.path.abspath(str(contrib_file)),
+            output_file=str(output_file),
+            cwm_scan_seqlets_path=str(cm_path),
+            trim_frac=trim_frac,
+            patterns=patterns,
+            filters=filters,
+            contrib_file=contrib_file,
+            add_profile_features=add_profile_features,
+            num_workers=num_workers,
+        ),
+        str(kwargs_json_file),
+    )
 
     # figure out contrib_wildcard
     modisco_kwargs = read_json(os.path.join(modisco_dir, "modisco-run.kwargs.json"))
@@ -586,12 +701,14 @@ def cwm_scan(modisco_dir,
 
     if not cm_path.exists():
         logger.info(f"Generating centroid matches to {cm_path.resolve()}")
-        cwm_scan_seqlets(modisco_dir,
-                         output_file=cm_path,
-                         trim_frac=trim_frac,
-                         contribsf=cf if contrib_file is None else None,
-                         num_workers=num_workers,
-                         verbose=False)
+        cwm_scan_seqlets(
+            modisco_dir,
+            output_file=cm_path,
+            trim_frac=trim_frac,
+            contribsf=cf if contrib_file is None else None,
+            num_workers=num_workers,
+            verbose=False,
+        )
     else:
         logger.info("Centroid matches already exist.")
     logger.info(f"Loading centroid matches from {cm_path.resolve()}")
@@ -604,7 +721,7 @@ def cwm_scan(modisco_dir,
     dfl = []
 
     # patterns to scan. `longer_pattern` makes sure the patterns are in the long format
-    scan_patterns = patterns.split(",") if patterns is not 'all' else mf.pattern_names()
+    scan_patterns = patterns.split(",") if patterns is not "all" else mf.pattern_names()
     scan_patterns = [longer_pattern(pn) for pn in scan_patterns]
 
     if add_profile_features:
@@ -616,21 +733,28 @@ def cwm_scan(modisco_dir,
             # skip scanning that patterns
             continue
         pattern = mf.get_pattern(pattern_name).trim_seq_ic(trim_frac)
-        match, contribution = pattern.scan_contribution(contrib, hyp_contrib=None, tasks=tasks,
-                                                        n_jobs=num_workers, verbose=False)
+        match, contribution = pattern.scan_contribution(
+            contrib, hyp_contrib=None, tasks=tasks, n_jobs=num_workers, verbose=False
+        )
         seq_match = pattern.scan_seq(seq, n_jobs=num_workers, verbose=False)
-        dfm = pattern.get_instances(tasks, match, contribution, seq_match,
-                                    norm_df=dfm_norm[dfm_norm.pattern == pattern_name],
-                                    verbose=False, plot=False)
+        dfm = pattern.get_instances(
+            tasks,
+            match,
+            contribution,
+            seq_match,
+            norm_df=dfm_norm[dfm_norm.pattern == pattern_name],
+            verbose=False,
+            plot=False,
+        )
         for filt in filters.split(","):
             if len(filt) > 0:
                 dfm = dfm.query(filt)
 
         if add_profile_features:
-            dfm = annotate_profile_single(dfm, pattern_name, mf, profile,
-                                          profile_width=70,
-                                          trim_frac=trim_frac)
-        dfm['pattern_short'] = shorten_pattern(pattern_name)
+            dfm = annotate_profile_single(
+                dfm, pattern_name, mf, profile, profile_width=70, trim_frac=trim_frac
+            )
+        dfm["pattern_short"] = shorten_pattern(pattern_name)
 
         # TODO - is it possible to write out the results incrementally?
         dfl.append(dfm)
@@ -642,97 +766,143 @@ def cwm_scan(modisco_dir,
     # append the ranges
     logger.info("Append ranges")
     ranges.columns = ["example_" + v for v in ranges.columns]
-    dfp = dfp.merge(ranges, on="example_idx", how='left')
+    dfp = dfp.merge(ranges, on="example_idx", how="left")
 
     # add the absolute coordinates
-    dfp['pattern_start_abs'] = dfp['example_start'] + dfp['pattern_start']
-    dfp['pattern_end_abs'] = dfp['example_start'] + dfp['pattern_end']
+    dfp["pattern_start_abs"] = dfp["example_start"] + dfp["pattern_start"]
+    dfp["pattern_end_abs"] = dfp["example_start"] + dfp["pattern_end"]
 
     logger.info("Table info")
     dfp.info()
-    logger.info(f"Writing the resuling pd.DataFrame of shape {dfp.shape} to {output_file}")
+    logger.info(
+        f"Writing the resuling pd.DataFrame of shape {dfp.shape} to {output_file}"
+    )
 
     # set the first 7 columns to comply to bed6 format (chrom, start, end, name, score, strand, ...)
-    bed_columns = ['example_chrom', 'pattern_start_abs', 'pattern_end_abs',
-                   'pattern', 'contrib_weighted_p', 'strand', 'match_weighted_p']
+    bed_columns = [
+        "example_chrom",
+        "pattern_start_abs",
+        "pattern_end_abs",
+        "pattern",
+        "contrib_weighted_p",
+        "strand",
+        "match_weighted_p",
+    ]
     dfp = pd_first_cols(dfp, bed_columns)
 
     # write to a parquet file
     if output_file.endswith(".parq"):
         logger.info("Writing a parquet file")
-        dfp.to_parquet(output_file, partition_on=['pattern_short'], engine='fastparquet')
+        dfp.to_parquet(
+            output_file, partition_on=["pattern_short"], engine="fastparquet"
+        )
     elif output_file.endswith(".csv.gz") or output_file.endswith(".csv"):
         logger.info("Writing a csv file")
-        dfp.to_csv(output_file, compression='infer', index=False)
+        dfp.to_csv(output_file, compression="infer", index=False)
     elif output_file.endswith(".tsv.gz") or output_file.endswith(".tsv"):
         logger.info("Writing a tsv file")
-        dfp.to_csv(output_file, sep='\t', compression='infer', index=False)
+        dfp.to_csv(output_file, sep="\t", compression="infer", index=False)
     elif output_file.endswith(".bed.gz") or output_file.endswith(".bed"):
         logger.info("Writing a BED file")
         # write only the first (and main) 7 columns
-        dfp[bed_columns].to_csv(output_file, sep='\t', compression='infer', index=False, header=False)
+        dfp[bed_columns].to_csv(
+            output_file, sep="\t", compression="infer", index=False, header=False
+        )
     else:
-        logger.warn("File suffix not recognized. Using .csv.gz file format")
-        dfp.to_csv(output_file, compression='gzip', index=False)
+        logger.warning("File suffix not recognized. Using .csv.gz file format")
+        dfp.to_csv(output_file, compression="gzip", index=False)
     logger.info("Done!")
 
 
 def modisco_report(modisco_dir, output_dir):
-    render_ipynb(os.path.join(this_path, "../templates/modisco-chip.ipynb"),
-                 os.path.join(output_dir, "modisco-chip.ipynb"),
-                 params=dict(modisco_dir=modisco_dir))
+    render_ipynb(
+        os.path.join(this_path, "../templates/modisco-chip.ipynb"),
+        os.path.join(output_dir, "modisco-chip.ipynb"),
+        params=dict(modisco_dir=modisco_dir),
+    )
 
 
-@arg('modisco_dir',
-     help='directory path `output_dir` in `bpnet.cli.modisco.modisco_run` contains: '
-     'modisco.h5, modisco-run.subset-contrib-file.npy, modisco-run.kwargs.json')
-@arg("output_dir",
-     help='output directory where to store the output bed files')
-@arg('--trim-frac',
-     help='How much to trim the pattern when scanning for motif instances. '
-     'See also `bpnet.modisco.utils.trim_pssm_idx`')
+@arg(
+    "modisco_dir",
+    help="directory path `output_dir` in `bpnet.cli.modisco.modisco_run` contains: "
+    "modisco.h5, modisco-run.subset-contrib-file.npy, modisco-run.kwargs.json",
+)
+@arg("output_dir", help="output directory where to store the output bed files")
+@arg(
+    "--trim-frac",
+    help="How much to trim the pattern when scanning for motif instances. "
+    "See also `bpnet.modisco.utils.trim_pssm_idx`",
+)
 def modisco_export_seqlets(modisco_dir, output_dir, trim_frac=0.08):
     from pybedtools import Interval
     from bpnet.modisco.files import ModiscoFile
-    add_file_logging(output_dir, logger, 'modisco_export_seqlets')
+
+    add_file_logging(output_dir, logger, "modisco_export_seqlets")
     ranges = load_ranges(modisco_dir)
-    example_intervals = [Interval(row.chrom, row.start, row.end)
-                         for i, row in ranges.iterrows()]
+    example_intervals = [
+        Interval(row.chrom, row.start, row.end) for i, row in ranges.iterrows()
+    ]
 
     r = ModiscoFile(os.path.join(modisco_dir, "modisco.h5"))
-    r.export_seqlets_bed(output_dir,
-                         example_intervals=example_intervals,
-                         position='absolute',
-                         trim_frac=trim_frac)
+    r.export_seqlets_bed(
+        output_dir,
+        example_intervals=example_intervals,
+        position="absolute",
+        trim_frac=trim_frac,
+    )
     r.close()
 
 
-def modisco_table(modisco_dir, contrib_scores, output_dir, report_url=None, contribsf=None,
-                  footprint_width=200):
-    """Write the pattern table to as .html and .csv
-    """
-    plt.switch_backend('agg')
+def modisco_table(
+    modisco_dir,
+    contrib_scores,
+    output_dir,
+    report_url=None,
+    contribsf=None,
+    footprint_width=200,
+):
+    """Write the pattern table to as .html and .csv"""
+    plt.switch_backend("agg")
     from bpnet.modisco.table import ModiscoData, modisco_table, write_modisco_table
     from bpnet.modisco.motif_clustering import hirearchically_reorder_table
-    add_file_logging(output_dir, logger, 'modisco-table')
+
+    add_file_logging(output_dir, logger, "modisco-table")
     print("Loading required data")
-    data = ModiscoData.load(modisco_dir, contrib_scores, contribsf=contribsf, footprint_width=footprint_width)
+    data = ModiscoData.load(
+        modisco_dir,
+        contrib_scores,
+        contribsf=contribsf,
+        footprint_width=footprint_width,
+    )
 
     print("Generating the table")
     df = modisco_table(data)
 
     print("Writing the results")
-    write_modisco_table(df, output_dir, report_url, 'pattern_table')
+    write_modisco_table(df, output_dir, report_url, "pattern_table")
 
     print("Writing clustered table")
-    write_modisco_table(hirearchically_reorder_table(df, data.tasks),
-                        output_dir, report_url, 'pattern_table.sorted')
+    write_modisco_table(
+        hirearchically_reorder_table(df, data.tasks),
+        output_dir,
+        report_url,
+        "pattern_table.sorted",
+    )
 
     print("Writing footprints")
-    profiles = OrderedDict([(pattern, {task: data.get_profile_wide(pattern, task).mean(axis=0)
-                                       for task in data.tasks})
-                            for pattern in data.mf.pattern_names()])
-    write_pkl(profiles, Path(output_dir) / 'footprints.pkl')
+    profiles = OrderedDict(
+        [
+            (
+                pattern,
+                {
+                    task: data.get_profile_wide(pattern, task).mean(axis=0)
+                    for task in data.tasks
+                },
+            )
+            for pattern in data.mf.pattern_names()
+        ]
+    )
+    write_pkl(profiles, Path(output_dir) / "footprints.pkl")
     print("Done!")
 
 
@@ -787,6 +957,7 @@ def modisco_export_patterns(modisco_dir, output_file, contribsf=None):
     Adds `stacked_seqlet_contrib` and `n_seqlets` to pattern `attrs`
 
     Args:
+      contribsf:
       modisco_dir: modisco directory containing
       output_file: output file path for patterns.pkl
     """
@@ -795,9 +966,8 @@ def modisco_export_patterns(modisco_dir, output_file, contribsf=None):
     logger.info("Loading patterns")
     modisco_dir = Path(modisco_dir)
 
-    mf = ModiscoFile(modisco_dir / 'modisco.h5')
-    patterns = [mf.get_pattern(pname)
-                for pname in mf.pattern_names()]
+    mf = ModiscoFile(modisco_dir / "modisco.h5")
+    patterns = [mf.get_pattern(pname) for pname in mf.pattern_names()]
 
     if contribsf is None:
         contrib_file = ContribFile.from_modisco_dir(modisco_dir)
@@ -818,29 +988,41 @@ def modisco_export_patterns(modisco_dir, output_file, contribsf=None):
         # extract the contribution scores
         sti = contrib_file.extract(valid_seqlets, profile_width=None)
         sti.dfi = mf.get_seqlet_intervals(p.name, as_df=True)
-        p.attrs['stacked_seqlet_contrib'] = sti
-        p.attrs['n_seqlets'] = mf.n_seqlets(p.name)
+        p.attrs["stacked_seqlet_contrib"] = sti
+        p.attrs["n_seqlets"] = mf.n_seqlets(p.name)
         extended_patterns.append(p)
 
     write_pkl(extended_patterns, output_file)
 
 
-@arg('modisco_dir',
-     help='directory path `output_dir` in `bpnet.cli.modisco.modisco_run` contains: '
-     'modisco.h5, modisco-run.subset-contrib-file.npy, modisco-run.kwargs.json')
-@arg('--trim-frac',
-     help='How much to trim the pattern when scanning for motif instances. '
-     'See also `bpnet.modisco.utils.trim_pssm_idx`')
-@arg('--num-workers',
-     help='number of workers to use in parallel for running modisco')
-@arg('--run-cwm-scan',
-     help='if True, cwm scanning will be ran')
-@arg('--force',
-     help='if True, commands will be re-run regardless of whether whey have already been computed')
-@arg('--footprint-width',
-     help='Width of the footprint to consider when showing heatmaps or when computing the footprint scores')
-def chip_nexus_analysis(modisco_dir, trim_frac=0.08, num_workers=20, run_cwm_scan=False, force=False,
-                        footprint_width=200):
+@arg(
+    "modisco_dir",
+    help="directory path `output_dir` in `bpnet.cli.modisco.modisco_run` contains: "
+    "modisco.h5, modisco-run.subset-contrib-file.npy, modisco-run.kwargs.json",
+)
+@arg(
+    "--trim-frac",
+    help="How much to trim the pattern when scanning for motif instances. "
+    "See also `bpnet.modisco.utils.trim_pssm_idx`",
+)
+@arg("--num-workers", help="number of workers to use in parallel for running modisco")
+@arg("--run-cwm-scan", help="if True, cwm scanning will be ran")
+@arg(
+    "--force",
+    help="if True, commands will be re-run regardless of whether whey have already been computed",
+)
+@arg(
+    "--footprint-width",
+    help="Width of the footprint to consider when showing heatmaps or when computing the footprint scores",
+)
+def chip_nexus_analysis(
+    modisco_dir,
+    trim_frac=0.08,
+    num_workers=20,
+    run_cwm_scan=False,
+    force=False,
+    footprint_width=200,
+):
     """Compute all the results for modisco specific for ChIP-nexus/exo data. Runs:
     - modisco_plot
     - modisco_report
@@ -854,7 +1036,7 @@ def chip_nexus_analysis(modisco_dir, trim_frac=0.08, num_workers=20, run_cwm_sca
       Whether the commands have been run before is deterimined by checking if the following file exists:
         `{modisco_dir}/.modisco_report_all/{command}.done`.
     """
-    plt.switch_backend('agg')
+    plt.switch_backend("agg")
     from bpnet.utils import ConditionalRun
 
     modisco_dir = Path(modisco_dir)
@@ -868,8 +1050,8 @@ def chip_nexus_analysis(modisco_dir, trim_frac=0.08, num_workers=20, run_cwm_sca
     if len(all_patterns) == 0:
         print("No patterns found.")
         # Touch modisco-chip.html for snakemake
-        open(modisco_dir / 'modisco-chip.html', 'a').close()
-        open(modisco_dir / 'seqlets/scored_regions.bed', 'a').close()
+        open(modisco_dir / "modisco-chip.html", "a").close()
+        open(modisco_dir / "seqlets/scored_regions.bed", "a").close()
         return
 
     # class determining whether to run the command or not (poor-man's snakemake)
@@ -877,8 +1059,10 @@ def chip_nexus_analysis(modisco_dir, trim_frac=0.08, num_workers=20, run_cwm_sca
 
     sync = []
     # --------------------------------------------
-    if (not cr.set_cmd('modisco_plot').done()
-            or not cr.set_cmd('modisco_enrich_patterns').done()):
+    if (
+        not cr.set_cmd("modisco_plot").done()
+        or not cr.set_cmd("modisco_enrich_patterns").done()
+    ):
         # load ContribFile and pass it to all the functions
         logger.info("Loading ContribFile")
         contribsf = ContribFile.from_modisco_dir(modisco_dir)
@@ -887,52 +1071,63 @@ def chip_nexus_analysis(modisco_dir, trim_frac=0.08, num_workers=20, run_cwm_sca
         contribsf = None
     # --------------------------------------------
     # Basic reports
-    if not cr.set_cmd('modisco_plot').done():
-        modisco_plot(modisco_dir,
-                     modisco_dir / 'plots',
-                     heatmap_width=footprint_width,
-                     figsize=(10, 10), contribsf=contribsf)
+    if not cr.set_cmd("modisco_plot").done():
+        modisco_plot(
+            modisco_dir,
+            modisco_dir / "plots",
+            heatmap_width=footprint_width,
+            figsize=(10, 10),
+            contribsf=contribsf,
+        )
         cr.write()
     sync.append("plots")
 
-    if not cr.set_cmd('modisco_report').done():
+    if not cr.set_cmd("modisco_report").done():
         modisco_report(str(modisco_dir), str(modisco_dir))
         cr.write()
     sync.append("modisco-chip.html")
 
     # Export bed-files and bigwigs
     # Seqlets
-    if not cr.set_cmd('modisco_export_seqlets').done():
-        modisco_export_seqlets(str(modisco_dir), str(modisco_dir / 'seqlets'), trim_frac=trim_frac)
+    if not cr.set_cmd("modisco_export_seqlets").done():
+        modisco_export_seqlets(
+            str(modisco_dir), str(modisco_dir / "seqlets"), trim_frac=trim_frac
+        )
         cr.write()
     sync.append("seqlets")
 
-    if not cr.set_cmd('modisco_export_patterns').done():
-        modisco_export_patterns(modisco_dir,
-                                output_file=modisco_dir / 'patterns.pkl',
-                                contribsf=contribsf)
+    if not cr.set_cmd("modisco_export_patterns").done():
+        modisco_export_patterns(
+            modisco_dir, output_file=modisco_dir / "patterns.pkl", contribsf=contribsf
+        )
         cr.write()
     sync.append("patterns.pkl")
 
     # --------------------------------------------
     # Finding new instances
     if run_cwm_scan:
-        if not cr.set_cmd('cwm_scan').done():
-            cwm_scan(modisco_dir,
-                     modisco_dir / 'instances.bed.gz',
-                     trim_frac=trim_frac,
-                     contrib_file=None,
-                     num_workers=num_workers)
+        if not cr.set_cmd("cwm_scan").done():
+            cwm_scan(
+                modisco_dir,
+                modisco_dir / "instances.bed.gz",
+                trim_frac=trim_frac,
+                contrib_file=None,
+                num_workers=num_workers,
+            )
             cr.write()
 
-    if not cr.set_cmd('modisco_table').done():
-        modisco_table(modisco_dir, contrib_scores, modisco_dir, report_url=None, contribsf=contribsf,
-                      footprint_width=footprint_width)
+    if not cr.set_cmd("modisco_table").done():
+        modisco_table(
+            modisco_dir,
+            contrib_scores,
+            modisco_dir,
+            report_url=None,
+            contribsf=contribsf,
+            footprint_width=footprint_width,
+        )
         cr.write()
     sync.append("footprints.pkl")
     sync.append("pattern_table.*")
-
-
 
     # --------------------------------------------
 

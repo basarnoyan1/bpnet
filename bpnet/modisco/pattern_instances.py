@@ -2,16 +2,17 @@
 produced by `bpnet.cli.modisco.modisco_score2`
 which calls `pattern.get_instances`
 """
-from bpnet.stats import quantile_norm
 from collections import OrderedDict
-from tqdm import tqdm
-import pandas as pd
-from bpnet.modisco.utils import longer_pattern, shorten_pattern
-from bpnet.cli.modisco import get_nonredundant_example_idx
+
 import numpy as np
-from bpnet.plot.profiles import extract_signal
+import pandas as pd
+from tqdm import tqdm
+
+from bpnet.cli.modisco import get_nonredundant_example_idx
 from bpnet.modisco.core import resize_seqlets, Seqlet
-from bpnet.modisco.utils import trim_pssm_idx
+from bpnet.modisco.utils import longer_pattern, shorten_pattern
+from bpnet.plot.profiles import extract_signal
+from bpnet.stats import quantile_norm
 
 
 def get_motif_pairs(motifs):
@@ -39,6 +40,8 @@ def load_instances(parq_file, motifs=None, dedup=True, verbose=True):
     """Load pattern instances from the parquet file
 
     Args:
+      dedup:
+      verbose:
       parq_file: parquet file of motif instances
       motifs: dictionary of motifs of interest.
         key=custom motif name, value=short pattern name (e.g. {'Nanog': 'm0_p3'})
@@ -224,17 +227,16 @@ def plot_coocurence_matrix(dfi, total_examples, signif_threshold=1e-5, ax=None):
     """Test for motif co-occurence in example regions
 
     Args:
+      signif_threshold:
+      ax:
       dfi: pattern instance DataFrame observer by load_instances
       total_examples: total number of examples
     """
     import matplotlib.pyplot as plt
     if ax is None:
         ax = plt.gca()
-    from sklearn.metrics import matthews_corrcoef
-    from scipy.stats import fisher_exact
     import statsmodels as sm
     import seaborn as sns
-    import matplotlib.pyplot as plt
 
     counts = pd.pivot_table(dfi, 'pattern_len', "example_idx",
                             "pattern_name", aggfunc=len, fill_value=0)
@@ -269,11 +271,13 @@ def plot_coocurence_matrix(dfi, total_examples, signif_threshold=1e-5, ax=None):
 
 
 def construct_motif_pairs(dfi, motif_pair,
-                          features=['match_weighted_p',
-                                    'contrib_weighted_p',
-                                    'contrib_weighted']):
+                          features=None):
     """Construct motifs pair table
     """
+    if features is None:
+        features = ['match_weighted_p',
+                    'contrib_weighted_p',
+                    'contrib_weighted']
     dfi_filtered = dfi.set_index('example_idx', drop=False)
     counts = pd.pivot_table(dfi_filtered,
                             'pattern_center', "example_idx", "pattern_name",
@@ -370,7 +374,7 @@ def profile_features(seqlets, ref_seqlets, profile, profile_width=70):
 
 def dfi_filter_valid(df, profile_width, seqlen):
     return df[(df.pattern_center.round() - profile_width > 0)
-              & ((df.pattern_center + profile_width < seqlen))]
+              & (df.pattern_center + profile_width < seqlen)]
 
 
 def annotate_profile_single(dfi, pattern_name, mr, profiles, profile_width=70, trim_frac=0.08):
@@ -405,6 +409,9 @@ def annotate_profile(dfi, mr, profiles, profile_width=70, trim_frac=0.08, patter
     Args:
       dfi[pd.DataFrame]: motif instances
       mr[ModiscoFile]
+      dfi:
+      mr:
+      pattern_map:
       profiles: dictionary of profiles with shape: (n_examples, seqlen, strand)
       profile_width: width of the profile to extract
       trim_frac: what trim fraction to use then computing the values for modisco

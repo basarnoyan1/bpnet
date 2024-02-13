@@ -1,25 +1,22 @@
 """Implementes ModiscoFile class
 """
-from collections import OrderedDict
 import os
-from copy import deepcopy
-import yaml
-from bpnet.functions import mean
-import h5py
-from bpnet.utils import write_json, read_json
-from kipoi.readers import HDF5Reader
-import numpy as np
-from matplotlib.ticker import FormatStrFormatter
-import pandas as pd
-from bpnet.plot.utils import show_figure
-from bpnet.modisco.utils import bootstrap_mean, nan_like, ic_scale, trim_pssm_idx, trim_pssm
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
-from bpnet.plot.vdom import vdom_modisco
-from bpnet.plot.utils import seqlogo_clean, strip_axis
-from bpnet.extractors import Interval
+import yaml
+from kipoi.readers import HDF5Reader
+from matplotlib.ticker import FormatStrFormatter
 from tqdm import tqdm
+
+from bpnet.extractors import Interval
+from bpnet.modisco.utils import bootstrap_mean, ic_scale, trim_pssm_idx, trim_pssm
 from bpnet.modisco.utils import shorten_pattern, longer_pattern
+from bpnet.plot.utils import seqlogo_clean, strip_axis
+from bpnet.plot.utils import show_figure
+from bpnet.plot.vdom import vdom_modisco
 
 
 def group_seqlets(seqlets, by='seqname'):
@@ -221,14 +218,14 @@ class ModiscoFile:
                          for s in self._get_seqlets(pattern_name)])
 
     def plot_profiles(self, x, tracks,
-                      contribution_scores={},
+                      contribution_scores=None,
                       figsize=(20, 2),
                       rc_vec=None,
                       start_vec=None,
                       width=20,
                       legend=True,
                       seq_height=2,
-                      ylim=[0, 3],
+                      ylim=None,
                       n_limit=35,
                       n_bootstrap=None,
                       pattern_names=None,
@@ -237,14 +234,29 @@ class ModiscoFile:
         """
         Plot the sequence profiles
         Args:
+          figsize:
+          rc_vec:
+          start_vec:
+          width:
+          legend:
+          seq_height:
+          ylim:
+          n_limit:
+          n_bootstrap:
+          pattern_names:
+          fpath_template:
+          rc_fn:
           x: one-hot-encoded sequence
           tracks: dictionary of profile tracks
           contribution_scores: optional dictionary of contribution scores
 
         TODO - add the reverse complementation option to it
         """
-        import matplotlib.pyplot as plt
-        from concise.utils.plot import seqlogo_fig, seqlogo
+        if contribution_scores is None:
+            contribution_scores = {}
+        if ylim is None:
+            ylim = [0, 3]
+        from concise.utils.plot import seqlogo
 
         seqs_all = self.extract_signal(x)
         ext_contribution_scores = {s: self.extract_signal(contrib)
@@ -385,7 +397,9 @@ class ModiscoFile:
         """Export the seqlet positions to a bed file
 
         Args:
-          output_file: output file path
+          output_dir:
+          trim_frac:
+          gzip:
           example_intervals: list of genomic intervals of the examples (regions where seqlets were extracted)
           position: 'relative' or 'absolute'
         """
@@ -502,7 +516,7 @@ class ModiscoFile:
         return pattern.plot(kind, letter_width=letter_width,
                             height=height, rotate_y=rotate_y, ylab=ylab)
 
-    def vdom(self, figdir, is_open=True, **kwargs):
+    def vdom(self, figdir, **kwargs):
         return vdom_modisco(self, figdir,
                             is_open=True, **kwargs)
 
@@ -515,6 +529,10 @@ class ModiscoFile:
                           **kwargs):
         """
         Args:
+          trim_frac:
+          n_min_seqlets:
+          ylim:
+          no_axis:
           kind:
         """
         self.stats()  # print stats

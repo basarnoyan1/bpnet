@@ -59,6 +59,8 @@ class SeqModelTrainer:
               tensorboard=True):
         """Train the model
         Args:
+          validation_samples:
+          train_samples_per_epoch:
           batch_size:
           epochs:
           early_stop_patience: early stopping patience
@@ -139,10 +141,10 @@ class SeqModelTrainer:
         except FileNotFoundError as e:
             logger.warning(e)
 
-    def evaluate(self, metric, batch_size=256, num_workers=8, eval_train=False, eval_skip=None, save=True, **kwargs):
+    def evaluate(self, batch_size=256, num_workers=8, eval_train=False, eval_skip=None, save=True, **kwargs):
         """Evaluate the model on the validation set
         Args:
-          metric: a function accepting (y_true, y_pred) and returning the evaluation metric(s)
+          eval_skip:
           batch_size:
           num_workers:
           eval_train: if True, also compute the evaluation metrics on the training set

@@ -384,7 +384,7 @@ def pd_col_prepend(df: pd.DataFrame, column, prefix="", suffix=""):
 def create_tf_session(visiblegpus, per_process_gpu_memory_fraction=0.45):
     import os
     import tensorflow as tf
-    import keras.backend as K
+    from tensorflow.python.keras import backend as K
 
     tf.compat.v1.disable_eager_execution()
 

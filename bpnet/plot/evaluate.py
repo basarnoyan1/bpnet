@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 
 def regression_eval(y_true, y_pred, alpha=0.5, markersize=2, task="",
-                    ax=None, same_lim=False, loglog=False, use_density=False, rasterized=True):
+                    ax=None, same_lim=False, loglog=False, rasterized=True):
 
     if ax is None:
         fig, ax = plt.subplots(1)

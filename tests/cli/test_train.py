@@ -1,14 +1,13 @@
 """Test bpnet train
 """
 import os
-import pytest
-from bpnet.cli.train import bpnet_train
-from pathlib import Path
-from bpnet.seqmodel import SeqModel
-from concise.preprocessing import encodeDNA
+
 import gin
-from tensorflow import keras
-import keras.backend as K
+from concise.preprocessing import encodeDNA
+from tensorflow.python.keras import backend as K
+
+from bpnet.cli.train import bpnet_train
+from bpnet.seqmodel import SeqModel
 
 
 def test_output_files(trained_model):

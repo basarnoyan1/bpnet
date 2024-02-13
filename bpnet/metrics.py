@@ -449,23 +449,23 @@ def frac_positive(y_true):
 
 
 @gin.configurable
-def accuracy(y_true, y_pred, round=True):
+def accuracy(y_true, y_pred, _round=True):
     """Classification accuracy
     """
     y_true, y_pred = _mask_value_nan(y_true, y_pred)
-    if round:
+    if _round:
         y_true = np.round(y_true)
         y_pred = np.round(y_pred)
     return skm.accuracy_score(y_true, y_pred)
 
 
 @gin.configurable
-def auc(y_true, y_pred, round=True):
+def auc(y_true, y_pred, _round=True):
     """Area under the ROC curve
     """
     y_true, y_pred = _mask_value_nan(y_true, y_pred)
 
-    if round:
+    if _round:
         y_true = y_true.round()
     if len(y_true) == 0 or len(np.unique(y_true)) < 2:
         return np.nan
@@ -481,22 +481,22 @@ def auprc(y_true, y_pred):
 
 
 @gin.configurable
-def mcc(y_true, y_pred, round=True):
+def mcc(y_true, y_pred, _round=True):
     """Matthews correlation coefficient
     """
     y_true, y_pred = _mask_value_nan(y_true, y_pred)
-    if round:
+    if _round:
         y_true = np.round(y_true)
         y_pred = np.round(y_pred)
     return skm.matthews_corrcoef(y_true, y_pred)
 
 
 @gin.configurable
-def f1(y_true, y_pred, round=True):
+def f1(y_true, y_pred, _round=True):
     """F1 score: `2 * (p * r) / (p + r)`, where p=precision and r=recall.
     """
     y_true, y_pred = _mask_value_nan(y_true, y_pred)
-    if round:
+    if _round:
         y_true = np.round(y_true)
         y_pred = np.round(y_pred)
     return skm.f1_score(y_true, y_pred)

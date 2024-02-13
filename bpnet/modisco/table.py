@@ -1,24 +1,21 @@
 """Create an overview table for modisco
 """
-from pathlib import Path
-import pandas as pd
 import warnings
-import numpy as np
-import os
-from bpnet.modisco.files import ModiscoFile
-from bpnet.plot.vdom import write_datatable_html
-from bpnet.plot.profiles import extract_signal
-from kipoi.readers import HDF5Reader
 from collections import OrderedDict
-from bpnet.functions import mean
-from bpnet.utils import read_json
-from bpnet.modisco.utils import shorten_pattern, longer_pattern, trim_pssm_idx
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 from tqdm import tqdm
-from joblib import Parallel, delayed
-import attr
-from bpnet.plot.vdom import fig2vdom, vdom_pssm
 from vdom.helpers import a
+
+from bpnet.functions import mean
+from bpnet.modisco.files import ModiscoFile
 from bpnet.modisco.periodicity import periodicity_10bp_frac
+from bpnet.modisco.utils import shorten_pattern, longer_pattern, trim_pssm_idx
+from bpnet.plot.profiles import extract_signal
+from bpnet.plot.vdom import fig2vdom, vdom_pssm
+from bpnet.plot.vdom import write_datatable_html
 
 
 class ModiscoData:
@@ -388,7 +385,7 @@ def write_modisco_table(df, output_dir, report_url=None, prefix='pattern_table',
                         exclude_when_writing=["logo pwm", "logo contrib"], doc=DOC, write_csv=True):
     """Write the pattern table to as .html and .csv
     """
-    from vdom.helpers import h2, h3, p, ul, ol, li, div, b
+    from vdom.helpers import h2, ul, li, div, b
     output_dir = Path(output_dir)
     df = df.copy()
 

@@ -172,7 +172,7 @@ class TsvReader:
         self.df = self.df.sample(frac=1)
 
     @classmethod
-    def concat(self, tsv_datasets):
+    def concat(cls, tsv_datasets):
         """Concatenate multiple objects"""
         for ds in tsv_datasets:
             assert ds.get_target_names() == tsv_datasets[0].get_target_names()
@@ -231,7 +231,7 @@ class StrandedProfile(Dataset):
         Args:
           ds (bpnet.dataspecs.DataSpec): data specification containing the
             fasta file, bed files and bigWig file paths
-          chromosomes (list of str): a list of chor
+          #chromosomes (list of str): a list of chor
           peak_width: resize the bed file to a certain width
           intervals_file: if specified, use these regions to train the model.
             If not specified, the regions are inferred from the dataspec.
@@ -487,6 +487,19 @@ def bpnet_data(
     """BPNet default data-loader
 
     Args:
+      peak_width:
+      intervals_file:
+      intervals_format:
+      seq_width:
+      shuffle:
+      total_count_transform:
+      track_transform:
+      include_metadata:
+      valid_chr:
+      test_chr:
+      exclude_chr:
+      augment_interval:
+      interval_augmentation_shift:
       dataspec:
       tasks: specify a subset of the tasks to use in the dataspec.yml. If None, all tasks will be specified.
     """
@@ -727,7 +740,7 @@ class SeqClassification(Dataset):
     Args:
         intervals_file: bed3+<columns> file containing intervals+labels
         fasta_file: file path; Genome sequence
-        label_dtype: label data type
+        #label_dtype: label data type
         num_chr_fasta: if True, the tsv-loader will make sure that the chromosomes
           don't start with chr
     """

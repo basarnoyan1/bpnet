@@ -1,20 +1,20 @@
 """Train models using gin configuration
 """
-import gin
 import gc
 import json
-import sys
 import os
-import yaml
 import shutil
-from argh.decorators import named, arg
+import sys
 from uuid import uuid4
+
+import gin
 import numpy as np
-from tqdm import tqdm
-from tensorflow import keras
-import keras.backend as K
-from bpnet.dataspecs import DataSpec
+import yaml
+from argh.decorators import named, arg
+from tensorflow.python.keras import backend as K
+
 from bpnet.data import NumpyDataset
+from bpnet.dataspecs import DataSpec
 from bpnet.utils import (create_tf_session, write_json,
                          render_ipynb,
                          related_dump_yaml,
@@ -33,8 +33,6 @@ except ImportError:
 
 # import all modules registering any gin configurables
 from bpnet.trainers import SeqModelTrainer
-from bpnet import metrics
-from bpnet import trainers
 from bpnet import samplers
 
 import logging
@@ -78,7 +76,7 @@ def start_experiment(output_dir,
         assert "/" in wandb_project
         entity, project = wandb_project.split("/")
         if wandb is None:
-            logger.warn("wandb not installed. Not using it")
+            logger.warning("wandb not installed. Not using it")
             wandb_run = None
         else:
             logger.info("Using wandb. Running wandb.init()")
@@ -97,7 +95,7 @@ def start_experiment(output_dir,
                            dir=output_dir)
             wandb_run = wandb.run
             if wandb_run is None:
-                logger.warn("Wandb run is None")
+                logger.warning("Wandb run is None")
             print(wandb_run)
     else:
         wandb_run = None
@@ -323,7 +321,7 @@ def train(output_dir,
           data=gin.REQUIRED,
           eval_metric=None,
           eval_train=False,
-          eval_skip=[],
+          eval_skip=None,
           trainer_cls=SeqModelTrainer,
           eval_report=None,
           # shared
@@ -350,6 +348,26 @@ def train(output_dir,
     """Main entry point to configure in the gin config
 
     Args:
+      output_dir:
+      eval_metric:
+      eval_skip:
+      trainer_cls:
+      batch_size:
+      epochs:
+      early_stop_patience:
+      train_epoch_frac:
+      valid_epoch_frac:
+      train_samples_per_epoch:
+      validation_samples:
+      train_batch_sampler:
+      stratified_sampler_p:
+      tensorboard:
+      in_memory:
+      num_workers:
+      gpu:
+      memfrac_gpu:
+      cometml_experiment:
+      wandb_run:
       model: compiled keras model
       data: tuple of (train, valid) Datasets
       eval_train: if True, also compute the evaluation metrics for the final model
@@ -359,6 +377,8 @@ def train(output_dir,
       seed: random seed to use (in numpy and tensorflow)
     """
     # from this point on, no configurable should be added. Save the gin config
+    if eval_skip is None:
+        eval_skip = []
     log_gin_config(output_dir, cometml_experiment, wandb_run)
 
     train_dataset, valid_dataset = data[0], data[1]
@@ -620,7 +640,7 @@ def bpnet_train(dataspec,
     related_dump_yaml(ds.abspath(), os.path.join(output_dir, 'dataspec.yml'))
     if vmtouch:
         if shutil.which('vmtouch') is None:
-            logger.warn("vmtouch is currently not installed. "
+            logger.warning("vmtouch is currently not installed. "
                         "--vmtouch disabled. Please install vmtouch to enable it")
         else:
             # use vmtouch to load all file to memory

@@ -85,7 +85,6 @@ class Dataset(BaseDataLoader):
         """Return a batch-iterator
 
         Arguments:
-            dataset (Dataset): dataset from which to load the data.
             batch_size (int, optional): how many samples per batch to load
                 (default: 1).
             shuffle (bool, optional): set to ``True`` to have the data reshuffled
@@ -190,8 +189,8 @@ class NumpyDataset(Dataset):
         return self.get_lens()[0]
 
     def __getitem__(self, idx):
-        def get_item(arr, idx):
-            return arr[idx]
+        def get_item(arr, _idx):
+            return arr[_idx]
         return self.dapply(get_item, idx=idx)
 
     def loc(self, idx):
@@ -217,13 +216,13 @@ class NumpyDataset(Dataset):
 
         Returns a nested dictionary
         """
-        def _dapply(data, fn, *args, **kwargs):
+        def _dapply(data, _fn, *_args, **_kwargs):
             if type(data).__module__ == 'numpy':
-                return fn(data, *args, **kwargs)
+                return _fn(data, *_args, **_kwargs)
             elif isinstance(data, collections.Mapping):
-                return {key: _dapply(data[key], fn, *args, **kwargs) for key in data}
+                return {key: _dapply(data[key], _fn, *_args, **_kwargs) for key in data}
             elif isinstance(data, collections.Sequence):
-                return [_dapply(sample, fn, *args, **kwargs) for sample in data]
+                return [_dapply(sample, _fn, *_args, **_kwargs) for sample in data]
             else:
                 raise ValueError("Leafs of the nested structure need to be numpy arrays")
 

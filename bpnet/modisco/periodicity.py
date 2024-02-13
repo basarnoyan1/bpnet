@@ -1,11 +1,11 @@
 """Functions useful for computing the periodicty
 """
-import numpy as np
-import matplotlib.ticker as ticker
 import matplotlib.pyplot as plt
-from bpnet.plot.profiles import extract_signal
-from bpnet.plot.tracks import plot_tracks
+import matplotlib.ticker as ticker
+import numpy as np
+
 from bpnet.plot.heatmaps import heatmap_contribution_profile, normalize
+from bpnet.plot.profiles import extract_signal
 
 
 def smooth(y, box_pts):
@@ -33,8 +33,7 @@ def compute_power_spectrum(pattern, task, data):
     seqlets = data.seqlets_per_task[pattern]
     wide_seqlets = [s.resize(data.footprint_width)
                     for s in seqlets
-                    if s.center() > data.footprint_width // 2 and
-                    s.center() < data.get_seqlen(pattern) - data.footprint_width // 2
+                    if data.footprint_width // 2 < s.center() < data.get_seqlen(pattern) - data.footprint_width // 2
                     ]
     p = extract_signal(data.get_region_hyp_contrib(task, 'profile'), wide_seqlets)
 
@@ -69,8 +68,7 @@ def plot_power_spectrum(pattern, task, data):
     seqlets = data.seqlets_per_task[pattern]
     wide_seqlets = [s.resize(data.footprint_width)
                     for s in seqlets
-                    if s.center() > data.footprint_width // 2 and
-                    s.center() < data.get_seqlen(pattern) - data.footprint_width // 2
+                    if data.footprint_width // 2 < s.center() < data.get_seqlen(pattern) - data.footprint_width // 2
                     ]
     p = extract_signal(data.get_region_hyp_contrib(task, 'profile'), wide_seqlets)
 

@@ -1,9 +1,10 @@
 """Test bpnet_export_bw
 """
 import os
+
+from tensorflow.python.keras import backend as K
+
 from bpnet.cli.export_bw import bpnet_export_bw
-from tensorflow import keras
-import keras.backend as K
 
 EXPECTED_FILES = ['Task1.contrib.counts.bw',
                   'Task1.contrib.profile.bw',

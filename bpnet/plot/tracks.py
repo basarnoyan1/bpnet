@@ -1,13 +1,15 @@
 """Plots genomic tracks
 """
-import attr
 import collections
-import numpy as np
-import matplotlib.ticker as ticker
-import matplotlib.pyplot as plt
 from collections import OrderedDict
+
+import attr
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+import numpy as np
 from concise.utils.pwm import seqlogo
-from bpnet.plot.utils import simple_yaxis_format, strip_axis, spaced_xticks, draw_box, spine_subset, draw_hline
+
+from bpnet.plot.utils import simple_yaxis_format, strip_axis, draw_box, spine_subset, draw_hline
 
 
 @attr.s
@@ -24,6 +26,8 @@ class TrackInterval:
 def plot_seqlet_box(seqlet, ax, add_label=False):
     """
     Args:
+      ax:
+      add_label:
       seqlet: object with start, end, name, strand attribues
       if Seqname is available, then we can plot it to the right position
     """
@@ -47,6 +51,8 @@ def plot_seqlet_box(seqlet, ax, add_label=False):
 def plot_seqlet_underscore(seqlet, ax, add_label=False):
     """
     Args:
+      ax:
+      add_label:
       seqlet: object with start, end, name, strand attribues
       if Seqname is available, then we can plot it to the right position
     """
@@ -165,12 +171,13 @@ def pad_tracks(tracks, new_len, value=0):
     """Filter tracks
 
     Args:
+      new_len:
+      value:
       tracks: dictionary or OrderedDict of arrays with ndim >=2 and same second dimension
 
     Returns:
       OrderedDict of tracks
     """
-    from bpnet.modisco.sliding_similarities import pad_same
     if tracks is None:
         return tracks
 
@@ -212,7 +219,7 @@ def skip_nan_tracks(tracks):
         raise ValueError("Tracks need to be either dict or OrderedDict")
 
 
-def plot_track(arr, ax, legend=False, ylim=None, color=None, track=None):
+def plot_track(arr, ax, legend=False, ylim=None, color=None):
     """Plot a track
     """
     seqlen = len(arr)
@@ -280,6 +287,17 @@ def plot_tracks(tracks, seqlets=None,
     and 1 or 2 dim tracks as normal line-plots.
 
     Args:
+      seqlets:
+      title:
+      rotate_y:
+      legend:
+      same_ylim:
+      use_spine_subset:
+      seqlet_plot_fn:
+      ylab:
+      color:
+      height_ratios:
+      plot_track_fn:
       tracks: dictionary of numpy arrays with the same axis0 length
       fig_width: figure width
       fig_height_per_track: figure height per track.

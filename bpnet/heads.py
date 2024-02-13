@@ -314,20 +314,20 @@ class ProfileHead(BaseHeadWBias):
 
         # Normalized contribution  - # TODO - update with tensorflow
         wn = kl.Lambda(
-            lambda p: K.mean(
-                K.sum(K.stop_gradient(tf.nn.softmax(p, axis=-2)) * p, axis=-2), axis=-1
+            lambda _p: K.mean(
+                K.sum(K.stop_gradient(tf.nn.softmax(_p, axis=-2)) * _p, axis=-2), axis=-1
             )
         )(p)
 
         # Squared weight
-        w2 = kl.Lambda(lambda p: K.mean(K.sum(p * p, axis=-2), axis=-1))(p)
+        w2 = kl.Lambda(lambda _p: K.mean(K.sum(_p * _p, axis=-2), axis=-1))(p)
 
         # W1 weight
         w1 = kl.Lambda(lambda preact_m: K.mean(K.sum(preact_m, axis=-2), axis=-1))(p)
 
         # Winf
         # 1. max across the positional axis, average the strands
-        winf = kl.Lambda(lambda p: K.mean(K.max(p, axis=-2), axis=-1))(p)
+        winf = kl.Lambda(lambda _p: K.mean(K.max(_p, axis=-2), axis=-1))(p)
 
         return {"wn": wn, "w1": w1, "w2": w2, "winf": winf}
 
