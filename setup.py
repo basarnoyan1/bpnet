@@ -54,7 +54,7 @@ requirements = [
     "tqdm",
 
     # Remove
-    "genomelake",
+    "genomelake @git+https://github.com/pauldrinn/genomelake.git#egg=genomelake",
     "pysam",  # replace with pyfaidx
 ]
 
