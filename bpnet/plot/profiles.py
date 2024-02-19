@@ -389,7 +389,7 @@ def box_counts(total_counts, pattern_idx):
     dfs.value = np.log10(1 + dfs.value)
 
     fig, ax = plt.subplots(figsize=(5, 5))
-    sns.boxplot("variable", "value", hue="subset", data=dfs, ax=ax)
+    sns.boxplot(data=dfs, x="variable", y="value", hue="subset", ax=ax)
     ax.set_xlabel("Task")
     ax.set_ylabel("log10(1+counts)")
     ax.set_title("Total number of counts in the region")
