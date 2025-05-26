@@ -14,7 +14,8 @@ from bpnet.seqmodel import SeqModel
 from bpnet.dataspecs import DataSpec
 from bpnet.functions import mean
 from bpnet.preproc import onehot_dinucl_shuffle
-from bpnet.utils import add_file_logging, fnmatch_any, create_tf_session, read_json
+from bpnet.utils import add_file_logging, fnmatch_any, read_json
+import torch
 import h5py
 import logging
 logger = logging.getLogger(__name__)
@@ -110,7 +111,9 @@ def bpnet_contrib(model_dir,
     from bpnet.extractors import _chrom_sizes
     add_file_logging(os.path.dirname(output_file), logger, 'bpnet-contrib')
     if gpu is not None:
-        create_tf_session(gpu, per_process_gpu_memory_fraction=memfrac_gpu)
+        # Set the GPU device for PyTorch
+        torch.cuda.set_device(gpu)
+        torch.cuda.empty_cache()
     else:
         # Don't use any GPU's
         os.environ['CUDA_VISIBLE_DEVICES'] = ''

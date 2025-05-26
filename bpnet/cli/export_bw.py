@@ -5,11 +5,13 @@ import pandas as pd
 import os
 from bpnet.seqmodel import SeqModel
 from bpnet.BPNet import BPNetSeqModel
-from bpnet.utils import add_file_logging, read_pkl, create_tf_session
+from bpnet.utils import add_file_logging, read_pkl
 from bpnet.dataspecs import DataSpec
 from bpnet.preproc import resize_interval
 from argh.decorators import named, arg
 import logging
+import torch
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -57,7 +59,10 @@ def bpnet_export_bw(model_dir,
     add_file_logging(output_dir, logger, 'bpnet-export-bw')
     os.makedirs(output_dir, exist_ok=True)
     if gpu is not None:
-        create_tf_session(gpu, per_process_gpu_memory_fraction=memfrac_gpu)
+        torch.cuda.set_device(gpu)
+        torch.cuda.empty_cache()
+    else:
+        os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
     logger.info("Load model")
 

@@ -10,7 +10,7 @@ import os
 from collections import OrderedDict
 from tqdm import tqdm
 from pathlib import Path
-from bpnet.utils import write_pkl, render_ipynb, remove_exists, add_file_logging, create_tf_session, pd_first_cols
+from bpnet.utils import write_pkl, render_ipynb, remove_exists, add_file_logging, pd_first_cols
 from bpnet.cli.contrib import ContribFile
 from bpnet.cli.train import _get_gin_files, log_gin_config
 from bpnet.modisco.files import ModiscoFile
@@ -191,7 +191,8 @@ def bpnet_modisco_run(contrib_file,
     add_file_logging(output_dir, logger, 'modisco-run')
     if gpu is not None:
         logger.info(f"Using gpu: {gpu}, memory fraction: {memfrac_gpu}")
-        create_tf_session(gpu, per_process_gpu_memory_fraction=memfrac_gpu)
+        torch.cuda.set_device(gpu)
+        torch.cuda.empty_cache()
     else:
         # Don't use any GPU's
         os.environ['CUDA_VISIBLE_DEVICES'] = ''

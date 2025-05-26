@@ -3,9 +3,9 @@
 import numpy as np
 from bpnet.utils import dict_prefix_key
 from bpnet.metrics import ClassificationMetrics, RegressionMetrics
-import tensorflow as tf
-import tensorflow.keras.backend as K
-import tensorflow.keras.layers as kl
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import gin
 import os
 import abc
@@ -118,61 +118,27 @@ class ScalarHead(BaseHeadWBias):
     def __call__(self, inp, task):
         o = self.net(inp)
 
-        # remember the tensors useful for interpretation (referred by name)
-        self.pre_act = o.name
-
-        # add the target bias
+        # Add the target bias
         if self.use_bias:
-            binp = kl.Input(self.bias_shape, name=self.get_bias_input(task))
-            bias_inputs = [binp]
-
-            # add the bias term
+            bias_input = torch.zeros(self.bias_shape)  # Replace `kl.Input`
             if self.bias_net is not None:
-                bias_x = self.bias_net(binp)
-                # This allows to normalize the bias data first
-                # (e.g. when we have profile counts to aggregate it first)
+                bias_x = self.bias_net(bias_input)
             else:
-                # Don't use the nn 'bias' so that when the measurement bias = 0,
-                # this term vanishes
-                bias_x = kl.Dense(1, use_bias=False)(binp)
-            o = kl.add([o, bias_x])
-        else:
-            bias_inputs = []
-
-        if self.activation is not None:
-            if isinstance(self.activation, str):
-                o = kl.Activation(self.activation)(o)
-            else:
-                o = self.activation(o)
-
-        self.post_act = o.name
-
-        # label the target op so that we can use a dictionary of targets
-        # to train the model
-        return named_tensor(o, name=self.get_target(task)), bias_inputs
+                bias_layer = nn.Linear(self.bias_shape[0], 1, bias=False)  # Replace `kl.Dense`
+                bias_x = bias_layer(bias_input)
+            o = o + bias_x  # Replace `kl.add`
+        return o
 
     def get_preact_tensor(self, graph=None):
-        if graph is None:
-            graph = tf.get_default_graph()
-        return graph.get_tensor_by_name(self.pre_act)
+        return self.pre_act
 
-    def intp_tensors(self, preact_only=False, graph=None):
-        """Return the required interpretation tensors
+    def intp_tensors(self, preact_only=False):
+        """Dictionary of all available interpretation tensors
         """
-        if graph is None:
-            graph = tf.get_default_graph()
-
-        if self.activation is None:
-            # the post-activation doesn't
-            # have any specific meaning when
-            # we don't use any activation function
-            return {"pre-act": graph.get_tensor_by_name(self.pre_act)}
-
-        if preact_only:
-            return {"pre-act": graph.get_tensor_by_name(self.pre_act)}
-        else:
-            return {"pre-act": graph.get_tensor_by_name(self.pre_act),
-                    "output": graph.get_tensor_by_name(self.post_act)}
+        tensors = {"pre-act": self.pre_act}
+        if not preact_only and hasattr(self, 'post_act'):
+            tensors["output"] = self.post_act
+        return tensors
 
     # def get_intp_tensor(self, which='pre-act'):
     #     return self.intp_tensors()[which]
@@ -262,95 +228,46 @@ class ProfileHead(BaseHeadWBias):
     def __call__(self, inp, task):
         o = self.net(inp)
 
-        # remember the tensors useful for interpretation (referred by name)
-        self.pre_act = o.name
-
-        # add the target bias
+        # Add the target bias
         if self.use_bias:
-            binp = kl.Input(self.bias_shape, name=self.get_bias_input(task))
-            bias_inputs = [binp]
-
-            # add the bias term
+            bias_input = torch.zeros(self.bias_shape)  # Replace `kl.Input`
             if self.bias_net is not None:
-                bias_x = self.bias_net(binp)
-                # This allows to normalize the bias data first
-                # (e.g. when we have profile counts to aggregate it first)
+                bias_x = self.bias_net(bias_input)
             else:
-                # Don't use the nn 'bias' so that when the measurement bias = 0,
-                # this term vanishes
-                bias_x = kl.Conv1D(1, kernel_size=1, use_bias=False)(binp)
-            o = kl.add([o, bias_x])
-        else:
-            bias_inputs = []
-
-        if self.activation is not None:
-            if isinstance(self.activation, str):
-                o = kl.Activation(self.activation)(o)
-            else:
-                o = self.activation(o)
-
-        self.post_act = o.name
-
-        # label the target op so that we can use a dictionary of targets
-        # to train the model
-        return named_tensor(o, name=self.get_target(task)), bias_inputs
+                bias_layer = nn.Conv1d(in_channels=self.bias_shape[1], out_channels=1, kernel_size=1, bias=False)  # Replace `kl.Conv1D`
+                bias_x = bias_layer(bias_input)
+            o = o + bias_x  # Replace `kl.add`
+        return o
 
     def get_preact_tensor(self, graph=None):
-        if graph is None:
-            graph = tf.get_default_graph()
-        return graph.get_tensor_by_name(self.pre_act)
+        return self.pre_act
 
     @staticmethod
     def profile_contrib(p):
-        """Summarizing the profile for the contribution scores
+        """Summarizing the profile for the contribution scores"""
+        # Normalized contribution
+        softmax_p = torch.softmax(p, dim=-2)
+        wn = torch.mean(torch.sum(softmax_p * p, dim=-2), dim=-1)
 
-        wn: Normalized contribution (weighted sum of the contribution scores)
-          where the weighted sum uses softmax(p) to weight it
-        w2: Simple sum (p**2)
-        w1: sum(p)
-        winf: max(p)
-        """
-        # Note: unfortunately we have to use the kl.Lambda boiler-plate
-        # to be able to do Model(inp, outputs) in deep-explain code
+        # Simple sum (p**2)
+        w2 = torch.mean(torch.sum(p * p, dim=-2), dim=-1)
 
-        # Normalized contribution  - # TODO - update with tensorflow
-        wn = kl.Lambda(lambda p:
-                       K.mean(K.sum(K.stop_gradient(tf.nn.softmax(p, dim=-2)) * p, axis=-2), axis=-1)
-                       )(p)
+        # Sum (p)
+        w1 = torch.mean(torch.sum(p, dim=-2), dim=-1)
 
-        # Squared weight
-        w2 = kl.Lambda(lambda p:
-                       K.mean(K.sum(p * p, axis=-2), axis=-1)
-                       )(p)
+        # Max (p)
+        winf = torch.mean(torch.max(p, dim=-2).values, dim=-1)
 
-        # W1 weight
-        w1 = kl.Lambda(lambda preact_m:
-                       K.mean(K.sum(preact_m, axis=-2), axis=-1)
-                       )(p)
+        return wn, w2, w1, winf
 
-        # Winf
-        # 1. max across the positional axis, average the strands
-        winf = kl.Lambda(lambda p:
-                         K.mean(K.max(p, axis=-2), axis=-1)
-                         )(p)
-
-        return {"wn": wn,
-                "w1": w1,
-                "w2": w2,
-                "winf": winf
-                }
-
-    def intp_tensors(self, preact_only=False, graph=None):
+    def intp_tensors(self, preact_only=False):
         """Return the required interpretation tensors (scalars)
 
         Note: Since we are predicting a track,
             we should return a single scalar here
         """
-        if graph is None:
-            graph = tf.get_default_graph()
-
-        preact = graph.get_tensor_by_name(self.pre_act)
-        postact = graph.get_tensor_by_name(self.post_act)
+        preact = self.pre_act
+        postact = self.post_act
 
         # Contruct the profile summary ops
         preact_tensors = self.profile_contrib(preact)

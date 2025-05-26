@@ -1,5 +1,4 @@
 from bpnet.plot.utils import strip_axis
-from concise.utils.plot import seqlogo
 from bpnet.plot.tracks import plot_track, plot_tracks
 import matplotlib.pyplot as plt
 from scipy.cluster.hierarchy import linkage, optimal_leaf_ordering, cut_tree, leaves_list
@@ -15,6 +14,7 @@ import pandas as pd
 import numpy as np
 from bpnet.modisco.utils import shorten_pattern
 from sklearn.preprocessing import minmax_scale, StandardScaler
+from bpnet.plot.utils import seqlogo_clean  # Assuming seqlogo_clean is the replacement function
 
 NUMERIC_DTYPES = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
 

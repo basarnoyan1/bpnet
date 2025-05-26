@@ -3,14 +3,10 @@ import numpy as np
 from copy import deepcopy
 import json
 from pathlib import Path
-from kipoi.data import Dataset
-# try:
-# import torch
-# from bpnet.data import Dataset
-# torch.multiprocessing.set_sharing_strategy('file_system')
-# except:
-#     print("PyTorch not installed. Using Dataset from kipoi.data")
-#    from kipoi.data import Dataset
+import torch
+from torch.utils.data import Dataset
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 from kipoi.metadata import GenomicRanges
 from bpnet.utils import to_list
@@ -28,6 +24,7 @@ from kipoi_utils.data_utils import get_dataset_item
 from kipoiseq.dataloaders.sequence import BedDataset
 import gin
 import logging
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -36,8 +33,7 @@ class TsvReader:
     def __init__(self, tsv_file,
                  num_chr=False,
                  label_dtype=None,
-                 mask_ambigous=None,
-                 # task_prefix='task/',
+                 mask_ambiguous=None,  # Fixed typo: ambigous -> ambiguous
                  incl_chromosomes=None,
                  excl_chromosomes=None,
                  chromosome_lens=None,
@@ -50,7 +46,7 @@ class TsvReader:
           tsv_file: a tsv file with or without the header (i.e. BED file)
           num_chr: if True, remove the 'chr' prefix if existing in the chromosome names
           label_dtype: data type of the labels
-          mask_ambigous: if specified, rows where `<task>==mask_ambigous` will be omitted
+          mask_ambiguous: if specified, rows where `<task>==mask_ambiguous` will be omitted
           incl_chromosomes (list of str): list of chromosomes to keep.
               Intervals from other chromosomes are dropped.
           excl_chromosomes (list of str): list of chromosomes to exclude.
@@ -58,7 +54,6 @@ class TsvReader:
           chromosome_lens (dict of int): dictionary with chromosome lengths
           resize_width (int): desired interval width. The resize fixes the center
               of the interval.
-
         """
         self.tsv_file = tsv_file
         self.num_chr = num_chr
@@ -68,9 +63,10 @@ class TsvReader:
         self.chromosome_lens = chromosome_lens
         self.resize_width = resize_width
 
+        # Use read_csv with nrows=0 to get column names only
         columns = list(pd.read_csv(self.tsv_file, nrows=0, sep='\t').columns)
 
-        if not columns[0].startswith("CHR") and not columns[0].startswith("#CHR"):
+        if not columns[0].upper().startswith("CHR") and not columns[0].upper().startswith("#CHR"):
             # No classes were provided
             self.columns = None
             self.tasknames = None
@@ -80,7 +76,6 @@ class TsvReader:
             self.columns = columns
             self.tasknames = list(columns)[3:]
             skiprows = [0]
-            # self.tasknames = [c.replace(task_prefix, "") for c in columns if task_prefix in c]
 
         df_peek = pd.read_csv(self.tsv_file,
                               header=None,
@@ -106,14 +101,16 @@ class TsvReader:
                               skiprows=skiprows,
                               dtype=dtypes,
                               sep='\t')
-        if self.num_chr and self.df.iloc[0][0].startswith("chr"):
-            self.df[0] = self.df[0].str.replace("^chr", "")
-        if not self.num_chr and not self.df.iloc[0][0].startswith("chr"):
-            self.df[0] = "chr" + self.df[0]
+        
+        # Fix chromosome naming - use .str accessor properly
+        if self.num_chr and len(self.df) > 0 and str(self.df.iloc[0, 0]).startswith("chr"):
+            self.df[0] = self.df[0].astype(str).str.replace("^chr", "", regex=True)
+        if not self.num_chr and len(self.df) > 0 and not str(self.df.iloc[0, 0]).startswith("chr"):
+            self.df[0] = "chr" + self.df[0].astype(str)
 
-        if mask_ambigous is not None and self.n_tasks > 0:
-            # exclude regions where only ambigous labels are present
-            self.df = self.df[~np.all(self.df.iloc[:, 3:] == mask_ambigous, axis=1)]
+        if mask_ambiguous is not None and self.n_tasks > 0:
+            # exclude regions where only ambiguous labels are present
+            self.df = self.df[~np.all(self.df.iloc[:, 3:] == mask_ambiguous, axis=1)]
 
         # omit data outside chromosomes
         if incl_chromosomes is not None:
@@ -140,12 +137,6 @@ class TsvReader:
         """Returns (pybedtools.Interval, labels)
         """
         from pybedtools import Interval
-        # TODO - speedup using: iat[idx, .]
-        # interval = Interval(self.dfm.iat[idx, 0],  # chrom
-        #                     self.dfm.iat[idx, 1],  # start
-        #                     self.dfm.iat[idx, 2])  # end
-        # intervals = [interval]
-        # task = self.dfm.iat[idx, 3]  # task
         row = self.df.iloc[idx]
         interval = Interval(row[0], row[1], row[2])
 
@@ -162,22 +153,26 @@ class TsvReader:
         return self.tasknames
 
     def get_targets(self):
+        if self.n_tasks == 0:
+            return np.array([])
         return self.df.iloc[:, 3:].values.astype(self.label_dtype)
 
     def shuffle_inplace(self):
         """Shuffle the interval
         """
-        self.df = self.df.sample(frac=1)
+        self.df = self.df.sample(frac=1).reset_index(drop=True)
 
     @classmethod
-    def concat(self, tsv_datasets):
+    def concat(cls, tsv_datasets):
         """Concatenate multiple objects
         """
+        if not tsv_datasets:
+            raise ValueError("Cannot concatenate empty list of datasets")
         for ds in tsv_datasets:
             assert ds.get_target_names() == tsv_datasets[0].get_target_names()
         obj = deepcopy(tsv_datasets[0])
         # concatenate the data-frames
-        obj.tsv = pd.concat([ds.df for ds in tsv_datasets])
+        obj.df = pd.concat([ds.df for ds in tsv_datasets], ignore_index=True)
         return obj
 
     def append(self, tsv_dataset):
@@ -220,13 +215,13 @@ class StrandedProfile(Dataset):
                  shuffle=True,
                  interval_transformer=None,
                  track_transform=None,
-                 total_count_transform=lambda x: np.log(1 + x)):
+                 total_count_transform=lambda x: torch.log(1 + x)):  # Use torch.log instead of np.log
         """Dataset for loading the bigwigs and fastas
 
         Args:
           ds (bpnet.dataspecs.DataSpec): data specification containing the
             fasta file, bed files and bigWig file paths
-          chromosomes (list of str): a list of chor
+          chromosomes (list of str): a list of chromosomes
           peak_width: resize the bed file to a certain width
           intervals_file: if specified, use these regions to train the model.
             If not specified, the regions are inferred from the dataspec.
@@ -234,7 +229,6 @@ class StrandedProfile(Dataset):
           shuffle: True
           track_transform: function to be applied to transform the tracks (shape=(batch, seqlen, channels))
           total_count_transform: transform to apply to the total counts
-            TODO - shall we standardize this to have also the inverse operation?
         """
         if isinstance(ds, str):
             self.ds = DataSpec.load(ds)
@@ -268,27 +262,34 @@ class StrandedProfile(Dataset):
 
         if self.intervals_file is None:
             # concatenate the bed files
-            self.dfm = pd.concat([TsvReader(task_spec.peaks,
-                                            num_chr=False,
-                                            incl_chromosomes=incl_chromosomes,
-                                            excl_chromosomes=excl_chromosomes,
-                                            chromosome_lens=self.chrom_lens,
-                                            resize_width=max(self.peak_width, self.seq_width)
-                                            ).df.iloc[:, :3].assign(task=task)
-                                  for task, task_spec in self.ds.task_specs.items()
-                                  if task_spec.peaks is not None])
+            dfs = []
+            for task, task_spec in self.ds.task_specs.items():
+                if task_spec.peaks is not None:
+                    task_df = TsvReader(task_spec.peaks,
+                                      num_chr=False,
+                                      incl_chromosomes=incl_chromosomes,
+                                      excl_chromosomes=excl_chromosomes,
+                                      chromosome_lens=self.chrom_lens,
+                                      resize_width=max(self.peak_width, self.seq_width)
+                                      ).df.iloc[:, :3].assign(task=task)
+                    dfs.append(task_df)
+            
+            if dfs:
+                self.dfm = pd.concat(dfs, ignore_index=True)
+            else:
+                # Create empty dataframe with proper columns
+                self.dfm = pd.DataFrame(columns=[0, 1, 2, "task"])
+                
             assert list(self.dfm.columns)[:4] == [0, 1, 2, "task"]
-            if self.shuffle:
-                self.dfm = self.dfm.sample(frac=1)
+            if self.shuffle and len(self.dfm) > 0:
+                self.dfm = self.dfm.sample(frac=1).reset_index(drop=True)
             self.tsv = None
             self.dfm_tasks = None
         else:
             self.tsv = TsvReader(self.intervals_file,
                                  num_chr=False,
-                                 # optional
                                  label_dtype=int if self.intervals_format == 'bed3+labels' else None,
-                                 mask_ambigous=-1 if self.intervals_format == 'bed3+labels' else None,
-                                 # --------------------------------------------
+                                 mask_ambiguous=-1 if self.intervals_format == 'bed3+labels' else None,
                                  incl_chromosomes=incl_chromosomes,
                                  excl_chromosomes=excl_chromosomes,
                                  chromosome_lens=self.chrom_lens,
@@ -359,20 +360,34 @@ class StrandedProfile(Dataset):
 
         # extract DNA sequence + one-hot encode it
         sequence = self.fasta_extractor([seq_interval])[0]
+        
+        # Convert to PyTorch tensor
+        if isinstance(sequence, np.ndarray):
+            sequence = torch.from_numpy(sequence).float()
+        
         inputs = {"seq": sequence}
 
-        # exctract the profile counts from the bigwigs
+        # extract the profile counts from the bigwigs
         cuts = {f"{task}/profile": _run_extractors(self.bw_extractors[task],
                                                    [target_interval],
                                                    sum_tracks=spec.sum_tracks)[0]
                 for task, spec in self.ds.task_specs.items() if task in self.tasks}
+        
+        # Convert numpy arrays to PyTorch tensors
+        for task in self.tasks:
+            if f'{task}/profile' in cuts:
+                if isinstance(cuts[f'{task}/profile'], np.ndarray):
+                    cuts[f'{task}/profile'] = torch.from_numpy(cuts[f'{task}/profile']).float()
+        
         if self.track_transform is not None:
             for task in self.tasks:
-                cuts[f'{task}/profile'] = self.track_transform(cuts[f'{task}/profile'])
+                if f'{task}/profile' in cuts:
+                    cuts[f'{task}/profile'] = self.track_transform(cuts[f'{task}/profile'])
 
         # Add total number of counts
         for task in self.tasks:
-            cuts[f'{task}/counts'] = self.total_count_transform(cuts[f'{task}/profile'].sum(0))
+            if f'{task}/profile' in cuts:
+                cuts[f'{task}/counts'] = self.total_count_transform(cuts[f'{task}/profile'].sum(0))
 
         if len(self.ds.bias_specs) > 0:
             # Extract the bias tracks
@@ -385,14 +400,22 @@ class StrandedProfile(Dataset):
                                                                    for bt in self.task_bias_tracks[task]],
                                                                   axis=-1)
                            for task in self.tasks}
+            
+            # Convert to PyTorch tensors
+            for task in self.tasks:
+                if f'bias/{task}/profile' in task_biases:
+                    if isinstance(task_biases[f'bias/{task}/profile'], np.ndarray):
+                        task_biases[f'bias/{task}/profile'] = torch.from_numpy(task_biases[f'bias/{task}/profile']).float()
 
             if self.track_transform is not None:
                 for task in self.tasks:
-                    task_biases[f'bias/{task}/profile'] = self.track_transform(task_biases[f'bias/{task}/profile'])
+                    if f'bias/{task}/profile' in task_biases:
+                        task_biases[f'bias/{task}/profile'] = self.track_transform(task_biases[f'bias/{task}/profile'])
 
             # Add total number of bias counts
             for task in self.tasks:
-                task_biases[f'bias/{task}/counts'] = self.total_count_transform(task_biases[f'bias/{task}/profile'].sum(0))
+                if f'bias/{task}/profile' in task_biases:
+                    task_biases[f'bias/{task}/counts'] = self.total_count_transform(task_biases[f'bias/{task}/profile'].sum(0))
 
             inputs = {**inputs, **task_biases}
 
@@ -427,7 +450,7 @@ def bpnet_data(dataspec,
                intervals_format='bed',
                seq_width=None,
                shuffle=True,
-               total_count_transform=lambda x: np.log(1 + x),
+               total_count_transform=lambda x: torch.log(1 + x),  # Use torch.log
                track_transform=None,
                include_metadata=False,
                valid_chr=['chr2', 'chr3', 'chr4'],
@@ -441,7 +464,6 @@ def bpnet_data(dataspec,
     Args:
       tasks: specify a subset of the tasks to use in the dataspec.yml. If None, all tasks will be specified.
     """
-    from bpnet.metrics import BPNetMetric, PeakPredictionProfileMetric, pearson_spearman
     # test and valid shouldn't be in the valid or test sets
     for vc in valid_chr:
         assert vc not in exclude_chr
@@ -510,7 +532,7 @@ def bpnet_data_gw(dataspec,
                   seq_width=None,
                   shuffle=True,
                   track_transform=None,
-                  total_count_transform=lambda x: np.log(1 + x),
+                  total_count_transform=lambda x: torch.log(1 + x),  # Use torch.log
                   include_metadata=False,
                   include_classes=False,
                   tasks=None,
@@ -521,7 +543,6 @@ def bpnet_data_gw(dataspec,
     """
     # NOTE = only chromosomes from chr1-22 and chrX and chrY are considered here
     # (e.g. all other chromosomes like ChrUn... are omitted)
-    from bpnet.metrics import BPNetMetric, PeakPredictionProfileMetric, pearson_spearman
     # test and valid shouldn't be in the valid or test sets
     for vc in valid_chr:
         assert vc not in exclude_chr
@@ -603,7 +624,6 @@ def bpnet_data_gw(dataspec,
                                         shuffle=shuffle,
                                         track_transform=track_transform,
                                         total_count_transform=total_count_transform)),
-        # use the default metric for the peak sets
     ]
     return train, valid
 
@@ -635,7 +655,7 @@ class SeqClassification(Dataset):
         self.tsv = TsvReader(self.intervals_file,
                              num_chr=self.num_chr_fasta,
                              label_dtype=int,
-                             mask_ambigous=-1,
+                             mask_ambiguous=-1,  # Fixed typo
                              incl_chromosomes=incl_chromosomes,
                              excl_chromosomes=excl_chromosomes,
                              )
@@ -651,11 +671,15 @@ class SeqClassification(Dataset):
         interval, labels = self.tsv[idx]
 
         if self.auto_resize_len:
-            # automatically resize the sequence to cerat
+            # automatically resize the sequence to create
             interval = resize_interval(interval, self.auto_resize_len)
 
         # Run the fasta extractor
         seq = np.squeeze(self.fasta_extractor([interval]))
+        
+        # Convert to PyTorch tensor
+        if isinstance(seq, np.ndarray):
+            seq = torch.from_numpy(seq).float()
 
         return {
             "inputs": {"seq": seq},

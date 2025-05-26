@@ -244,7 +244,6 @@ class ModiscoFile:
         TODO - add the reverse complementation option to it
         """
         import matplotlib.pyplot as plt
-        from concise.utils.plot import seqlogo_fig, seqlogo
 
         seqs_all = self.extract_signal(x)
         ext_contribution_scores = {s: self.extract_signal(contrib)
@@ -326,7 +325,7 @@ class ModiscoFile:
                 if start_vec is not None:
                     start = start_vec[j]
                     logo = logo[start:(start + width)]
-                seqlogo(logo, ax=ax[ax_id])
+                seqlogo_clean(logo, ax=ax[ax_id])
                 ax[ax_id].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
                 ax[ax_id].set_ylabel(contrib_score_name)
                 ax[ax_id].spines['top'].set_visible(False)
@@ -334,7 +333,7 @@ class ModiscoFile:
                 ax[ax_id].spines['bottom'].set_visible(False)
                 ax[ax_id].xaxis.set_ticks_position('none')
 
-            seqlogo(sequence, ax=ax[-1])
+            seqlogo_clean(sequence, ax=ax[-1])
             ax[-1].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
             ax[-1].set_ylabel("Inf. content")
             ax[-1].spines['top'].set_visible(False)

@@ -11,10 +11,9 @@ from argh.decorators import named, arg
 from uuid import uuid4
 import numpy as np
 from tqdm import tqdm
-import keras.backend as K
 from bpnet.dataspecs import DataSpec
 from bpnet.data import NumpyDataset
-from bpnet.utils import (create_tf_session, write_json,
+from bpnet.utils import (write_json,
                          render_ipynb,
                          related_dump_yaml,
                          Logger, NumpyAwareJSONEncoder,
@@ -628,7 +627,12 @@ def bpnet_train(dataspec,
     # import gin.tf
     if gpu is not None:
         logger.info(f"Using gpu: {gpu}, memory fraction: {memfrac_gpu}")
-        create_tf_session(gpu, per_process_gpu_memory_fraction=memfrac_gpu)
+        torch.cuda.set_device(gpu)
+        torch.cuda.empty_cache()
+    else:
+        # Don't use any GPU's
+        os.environ['CUDA_VISIBLE_DEVICES'] = ''
+        os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
     gin_files = _get_gin_files(premade, config)
 

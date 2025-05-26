@@ -5,16 +5,15 @@ import gin
 import modisco
 import modisco.tfmodisco_workflow.workflow
 from gin import config
-import keras
+import torch.optim as optim
 
-# keras.optimizers
-config.external_configurable(keras.optimizers.Adam, module='keras.optimizers')
-config.external_configurable(keras.optimizers.RMSprop, module='keras.optimizers')
-config.external_configurable(keras.optimizers.Adagrad, module='keras.optimizers')
-config.external_configurable(keras.optimizers.Adadelta, module='keras.optimizers')
-config.external_configurable(keras.optimizers.Adamax, module='keras.optimizers')
-config.external_configurable(keras.optimizers.Nadam, module='keras.optimizers')
-config.external_configurable(keras.optimizers.SGD, module='keras.optimizers')
+# torch.optimizers
+config.external_configurable(optim.Adam, module='torch.optim')
+config.external_configurable(optim.RMSprop, module='torch.optim')
+config.external_configurable(optim.Adagrad, module='torch.optim')
+config.external_configurable(optim.Adadelta, module='torch.optim')
+config.external_configurable(optim.AdamW, module='torch.optim')
+config.external_configurable(optim.SGD, module='torch.optim')
 
 
 # modisco
