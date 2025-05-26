@@ -163,6 +163,20 @@ class TorchSeqModel(nn.Module):
             
         return final_outputs_np
 
+    @classmethod
+    def load_model_from_dir(cls, model_dir):
+        # TODO: Implement actual model loading logic.
+        # This should reconstruct the model architecture (body, heads, tasks, seqlen)
+        # from config files in model_dir and then load the state_dict.
+        print(f"Placeholder: TorchSeqModel.load_model_from_dir called for {model_dir}")
+        print("Actual model loading (architecture reconstruction and state_dict loading) needs to be implemented here.")
+        # For now, return None or raise NotImplementedError to indicate it's a placeholder.
+        # To allow the flow for TorchBPNetSeqModel.from_mdir, we might need to return
+        # a dummy/uninitialized model for now if the caller expects an instance.
+        # However, for this subtask, let's make it clear it's not implemented.
+        raise NotImplementedError("TorchSeqModel.load_model_from_dir is not yet implemented.")
+        # return None # Or a dummy model if required by TorchBPNetSeqModel.from_mdir structure
+
 if __name__ == '__main__':
     # Example Usage (requires dummy body and head modules from bpnet.torch_layers)
     # Assuming bpnet.torch_layers are in python path

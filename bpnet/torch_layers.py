@@ -909,28 +909,15 @@ class DeConv1D(nn.Module):
         # Or P = floor((K-S)/2), OP = (K-S)%2 + S + 2*floor((K-S)/2) - K ... simplifies to (K-S)%2 if S is used for total padding.
         # This is complex. Let's use a simpler heuristic often used for 'same' in ConvTranspose1d:
         if self.padding_str == 'same':
-             _pt_padding = (self.kernel_size - self.stride) // 2
-             # Calculate expected output_padding. L_in is dynamic.
-             # For now, let's try with a common setting for output_padding.
-             # output_padding = self.stride - 1 if self.stride > 1 else 0 # Often helps for 'same'
-             # Let's defer output_padding calculation to forward pass if strictly needed for 'same'.
-             # For now, this is a common setup for 'same'-like behavior.
+             # Refined 'same' padding calculation
+             _pt_padding = (self.kernel_size - 1) // 2
+             self.pt_output_padding = max(0, self.stride - 1)
              # The Keras docs say for 'same' with strides: "output shape is a multiple of stride".
              # output_padding = (input_seq_len * self.stride - ((input_seq_len - 1) * self.stride + self.kernel_size - 2 * _pt_padding)) % self.stride
              # This is tricky as input_seq_len varies.
-             # Let's assume output_padding=0 or stride-1 for now.
-             # A common setup is padding = kernel_size // 2, output_padding = stride // 2 if stride > 1
+             # The current change uses a more standard PyTorch approach for 'same'-like padding.
              # Keras 'same' padding for ConvTranspose2D is not simple.
              # Given the context, 'valid' is more common in BPNet for precise control.
-             # If 'same' is truly needed, this might require more careful derivation or testing.
-             # For now, let's assume padding=0 for 'valid' and a basic setup for 'same'.
-             # The original Keras code uses `padding=padding` (string 'valid' or 'same') directly.
-             # For Conv2DTranspose, Keras 'same' means output H/W is input H/W * stride.
-             # This usually means padding = (k-s)/2 and some output_padding.
-             # Let's set output_padding = self.stride -1 for stride > 1, which is a common recipe for 'same'.
-             # This is only if padding_str == 'same'.
-             self.pt_output_padding = self.stride -1 if self.stride > 1 else 0
-
         else: # valid
             _pt_padding = 0
             self.pt_output_padding = 0
