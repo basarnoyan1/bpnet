@@ -124,14 +124,25 @@ class TsvReader:
         # Skip intervals outside of the genome
         if self.chromosome_lens is not None:
             n_int = len(self.df)
-            center = (self.df[1] + self.df[2]) // 2
-            valid_seqs = ((center > self.resize_width // 2 + 1) &
-                          (center < self.df[0].map(chromosome_lens).astype(int) - self.resize_width // 2 - 1))
+
+            if self.resize_width is not None:
+                center = (self.df[1] + self.df[2]) // 2
+                half   = self.resize_width // 2
+                valid_seqs = (
+                    (center > half + 1) &
+                    (center < self.df[0].map(self.chromosome_lens).astype(int) - half - 1)
+                )
+            else:
+                # only check that the BED interval fits inside the chromosome
+                valid_seqs = (
+                    (self.df[1] >= 0) &
+                    (self.df[2] <= self.df[0].map(self.chromosome_lens).astype(int))
+                )
+
             self.df = self.df[valid_seqs]
 
             if len(self.df) != n_int:
-                print(f"Skipped {n_int - len(self.df)} intervals"
-                      " outside of the genome size")
+                print(f"Skipped {n_int - len(self.df)} intervals outside of the genome size")
 
     def __getitem__(self, idx):
         """Returns (pybedtools.Interval, labels)
