@@ -44,4 +44,4 @@ dependencies:
 - pip:
   # If bpnet itself is being refactored to PyTorch, this direct git install might change or be removed.
   # For now, keeping it as is, assuming it might be a separate tool or version.
-  - git+https://github.com/basarnoyan1/bpnet.git
+  - -e .
