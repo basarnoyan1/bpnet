@@ -5,11 +5,14 @@ import gc
 import json
 import sys
 import os
+import random
+import inspect
 import yaml
 import shutil
 from argh.decorators import named, arg
 from uuid import uuid4
 import numpy as np
+import torch
 from tqdm import tqdm
 from bpnet.dataspecs import DataSpec
 from bpnet.data import NumpyDataset
@@ -267,10 +270,9 @@ def dataspec_stats(dataspec,
                    peak_width=1000):
     """Compute the stats about the tracks
     """
-    import random
     from pybedtools import BedTool
     from bpnet.preproc import resize_interval
-    from genomelake.extractors import FastaExtractor
+    from bpnet.genomics_extractors import FastaExtractor
 
     ds = DataSpec.load(dataspec)
 
@@ -368,14 +370,15 @@ def train(output_dir,
 
     if seed is not None:
         # Set the random seed
-        import random
         random.seed(seed)
         np.random.seed(seed)
-        try:
-            import tensorflow as tf
-            tf.set_random_seed(seed)
-        except Exception:
-            logger.info("Unable to set random seed for tensorflow")
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+        # Make CUDA deterministic
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
     # make sure the validation dataset names are unique
     if isinstance(valid_dataset, list):
@@ -447,8 +450,9 @@ def train(output_dir,
 
     if eval_report is not None:
         logger.info("Running the evaluation report")
-        # Release the GPU
-        K.clear_session()
+        # Release the GPU memory
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # remove memory
         del tr, train_dataset, valid_dataset, data
@@ -481,7 +485,6 @@ def train(output_dir,
 def _get_premade_path(premade, raise_error=False):
     """Get the pre-made file from ../premade/ directory
     """
-    import inspect
     filename = inspect.getframeinfo(inspect.currentframe()).filename
     this_dir = os.path.dirname(os.path.abspath(filename))
     premade_dir = os.path.join(this_dir, "../premade/")

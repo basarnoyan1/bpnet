@@ -66,7 +66,8 @@ class GlobalAvgPoolFCN(nn.Module):
                  hidden: Optional[List[int]] = None,
                  dropout_hidden: float = 0.0,
                  n_splines: int = 0,
-                 batchnorm: bool = False):
+                 batchnorm: bool = False,
+                 input_size: Optional[int] = None):
         super().__init__()
         self.n_tasks = n_tasks
         self.dropout = dropout
@@ -74,8 +75,6 @@ class GlobalAvgPoolFCN(nn.Module):
         self.batchnorm = batchnorm
         self.n_splines = n_splines
         self.hidden = hidden if hidden is not None else []
-        
-        assert self.n_splines >= 0
         
         # Spline layer if needed
         if self.n_splines > 0:
@@ -88,23 +87,36 @@ class GlobalAvgPoolFCN(nn.Module):
         if self.dropout > 0:
             self.dropout_layer = nn.Dropout(self.dropout)
         
-        # Hidden layers
+        # Use LazyLinear to handle dynamic input sizes
+        if input_size is not None:
+            self.final_layer = nn.Linear(input_size, self.n_tasks)
+        else:
+            self.final_layer = nn.LazyLinear(self.n_tasks)
+        
+        # Hidden layers - will be initialized properly when input size is known
         self.hidden_layers = nn.ModuleList()
-        for h in self.hidden:
+        if self.hidden:
+            # Use LazyLinear for first hidden layer
             layer_list = []
             if self.batchnorm:
-                layer_list.append(nn.BatchNorm1d(h))
-            layer_list.append(nn.Linear(h, h))
+                layer_list.append(nn.LazyBatchNorm1d())
+            layer_list.append(nn.LazyLinear(self.hidden[0]))
             layer_list.append(nn.ReLU())
             if self.dropout_hidden > 0:
                 layer_list.append(nn.Dropout(self.dropout_hidden))
             self.hidden_layers.append(nn.Sequential(*layer_list))
-        
-        # Final output layer
-        self.output_layers = nn.ModuleList()
-        if self.batchnorm:
-            self.output_layers.append(nn.BatchNorm1d(self.n_tasks))
-        
+            
+            # Regular linear layers for subsequent hidden layers
+            for i in range(1, len(self.hidden)):
+                layer_list = []
+                if self.batchnorm:
+                    layer_list.append(nn.BatchNorm1d(self.hidden[i]))
+                layer_list.append(nn.Linear(self.hidden[i-1], self.hidden[i]))
+                layer_list.append(nn.ReLU())
+                if self.dropout_hidden > 0:
+                    layer_list.append(nn.Dropout(self.dropout_hidden))
+                self.hidden_layers.append(nn.Sequential(*layer_list))
+    
     def forward(self, x):
         # x shape: (batch, seq_len, features) or (batch, features, seq_len)
         if len(x.shape) == 3 and x.shape[1] > x.shape[2]:
@@ -128,18 +140,10 @@ class GlobalAvgPoolFCN(nn.Module):
         for hidden_layer in self.hidden_layers:
             x = hidden_layer(x)
         
-        # Final dense layer
-        if self.batchnorm and len(self.output_layers) > 0:
-            x = self.output_layers[0](x)
-        
-        # Output projection - need to determine input size dynamically
-        if not hasattr(self, 'final_layer'):
-            self.final_layer = nn.Linear(x.shape[-1], self.n_tasks).to(x.device)
-        
+        # Final layer
         x = self.final_layer(x)
         return x
-
-
+    
 @gin.configurable
 class FCN(nn.Module):
     """Fully Connected Network"""
@@ -192,10 +196,6 @@ class FCN(nn.Module):
         # Final output layer
         if hasattr(self, 'output_bn'):
             x = self.output_bn(x)
-        
-        # Output projection - need to determine input size dynamically
-        if not hasattr(self, 'final_layer'):
-            self.final_layer = nn.Linear(x.shape[-1], self.n_tasks).to(x.device)
         
         x = self.final_layer(x)
         return x

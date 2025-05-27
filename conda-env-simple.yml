@@ -1,0 +1,40 @@
+name: bpnet
+channels:
+- pytorch
+- conda-forge
+- defaults
+dependencies:
+- python=3.9
+- git
+
+# PyTorch ecosystem
+- pytorch
+- torchvision
+- torchaudio
+
+# Essential data science libraries
+- numpy
+- pandas
+- scikit-learn
+- h5py
+
+# Kipoi and related
+- kipoi=0.6.25
+- kipoiseq=0.3.4
+
+# Other utilities
+- cython
+- tqdm
+- matplotlib
+- pip
+
+- pip:
+  # Bioinformatics packages via pip
+  - pybedtools>=0.7.10
+  - pybigwig>=0.3.10
+  - pysam>=0.14.0
+  - captum
+  # Optional: logomaker for better sequence logos
+  - logomaker
+  # Install the local bpnet package in development mode
+  - -e .

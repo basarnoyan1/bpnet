@@ -46,9 +46,9 @@ class TaskSpec(RelatedConfigMixin):
         try:
             from bpnet.extractors import StrandedBigWigExtractor
         except ImportError:
-            # Fallback to genomelake if bpnet extractor not available
-            from genomelake.extractors import BigwigExtractor
-            logger.warning("Using genomelake BigwigExtractor as fallback")
+            # Fallback to bpnet genomics extractor
+            from bpnet.genomics_extractors import BigwigExtractor
+            logger.warning("Using bpnet BigwigExtractor as fallback")
             
             tracks = []
             for track in self.tracks:

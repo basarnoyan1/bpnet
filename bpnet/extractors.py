@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 import attr
-from concise.preprocessing import encodeDNA
+from bpnet.sequence_utils import encodeDNA
 from joblib import Parallel, delayed
 from collections import OrderedDict
 
@@ -143,7 +143,7 @@ class StrandedBigWigExtractor:
 
     def extract_single(self, interval):
         if self.batch_extractor is None:
-            from genomelake.extractors import BigwigExtractor
+            from bpnet.genomics_extractors import BigwigExtractor
             self.batch_extractor = BigwigExtractor(self.bigwig_file)
 
         if self.interval_transform is not None:

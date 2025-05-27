@@ -1,20 +1,20 @@
 import os
 from typing import List, Dict, Optional, Union, Tuple, Any
 import matplotlib.ticker as ticker
-from genomelake.extractors import FastaExtractor
+from bpnet.genomics_extractors import FastaExtractor
 from collections import OrderedDict
 from bpnet.plot.tracks import plot_tracks, filter_tracks
 from bpnet.extractors import extract_seq
 from bpnet.models import SeqModel
 from tqdm import tqdm
 from bpnet.utils import flatten_list, nested_numpy_minibatch
-from concise.utils.plot import seqlogo
-from concise.preprocessing import encodeDNA
+from bpnet.sequence_utils import seqlogo
+from bpnet.sequence_utils import encodeDNA
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
-from genomelake.extractors import BigwigExtractor
+from bpnet.genomics_extractors import BigwigExtractor
 import pyBigWig
 import logging
 
@@ -576,7 +576,7 @@ class BPNetSeqModel:
         # make sure the regions are in the right order
         first_chr = list(np.unique(np.array([interval.chrom for interval in regions])))
         last_chr = [c for c, l in genome.items() if c not in first_chr]
-        genome = [(c, l) for c in first_chr + last_chr if c in genome]
+        genome = [(c, genome[c]) for c in first_chr + last_chr if c in genome]
 
         # open bigWigs for writing
         bws = {}

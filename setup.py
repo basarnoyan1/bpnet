@@ -4,67 +4,61 @@
 from setuptools import setup, find_packages
 
 requirements = [
-    "argh<0.28",
+    "argh>=0.28",  # updated
     "attr",
     "related",
-    "cloudpickle>=1.0.0",
-
-    "concise @git+https://github.com/basarnoyan1/concise.git#egg=concise",
-	"shapely<=1.8.5.post1",
+    "cloudpickle>=2.0.0",
 
     # PyTorch ecosystem
-    "torch",
-    "torchvision",
-    "torchaudio",
-    "captum",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "torchaudio>=2.0.0",
+    "captum>=0.6.0",
 
-    # ml
-    "scikit-learn",
+    # ML
+    "scikit-learn>=1.2.0",
 
-    # numerics
-    "h5py<3",
-    "numpy",
-    "pandas",
-    "scipy",
-    "statsmodels",
+    # Numerics  
+    "h5py>=3.7.0",
+    "numpy>=1.23.0",
+    "pandas>=1.5.0",
+    "scipy>=1.9.0",
+    "statsmodels>=0.13.0",
 
     # Plotting
-    "matplotlib>=3.0.2,<3.4.0", # Keep matplotlib version constraint for now
-    "plotnine", # Review if still needed with PyTorch for plotting or can be replaced
-    "seaborn", # Review if still needed
+    "matplotlib>=3.6.0",
+    "seaborn>=0.12.0",
 
-    # genomics
-    "pybigwig",
-    "pybedtools",
-    "modisco==0.5.3.0", # Review compatibility with PyTorch
-    # "pyranges", # Consider if needed
+    # Genomics
+    "pybigwig>=0.3.22",
+    "pybedtools>=0.9.0",
+    "pysam>=0.21.0",
+    "joblib>=1.2.0",
+    "tqdm>=4.64.0",
+    "kipoi[torch]>=0.7.0",  # minimal install, avoids keras/tensorflow
+    "kipoiseq>=0.7.0",      # latest version, check compatibility
+    "gin-config>=0.5.0",
 
-    "joblib",
-    "kipoi>=0.6.8", # Review compatibility
-    "kipoi-utils>=0.3.0", # Review compatibility
-    "kipoiseq>=0.2.2", # Review compatibility
+    # Optional: for better sequence logos
+    "logomaker>=0.8.0",
 
-    "papermill", # For notebook-based workflows, keep if relevant
-    "jupyter_client>=6.1.2", # For Jupyter, keep if relevant
-    "ipykernel", # For Jupyter, keep if relevant
-    "nbconvert>=5.5.0", # For Jupyter, keep if relevant
-    "vdom>=0.6", # For rich display in Jupyter, keep if relevant
-
-    # utils
-    "ipython", # For interactive work, keep if relevant
-    "tqdm",
-
-    # Remove or ensure compatibility
-    "genomelake @git+https://github.com/pauldrinn/genomelake.git#egg=genomelake", # Check PyTorch compatibility
-    "pysam",  # Check if still needed or can be replaced by pyfaidx or other alternatives
+    # Notebooks
+    "papermill>=2.4.0",
+    "jupyter_client>=7.4.0",
+    "ipykernel>=6.17.0",
+    "nbconvert>=7.0.0",
+    "vdom>=0.7",
+    "ipython>=8.0.0"
+    # "modisco",  # REMOVE from main requirements, add to optional if needed
 ]
-
 optional = [
-    "comet_ml", # Experiment tracking, keep if used
-    "wandb==0.8.7", # Experiment tracking, keep if used
-    "fastparquet", # For Parquet file format, keep if used
-    "python-snappy", # For Snappy compression, keep if used with Parquet
-    "ipywidgets",  # For interactive widgets in Jupyter, keep if used
+    "modisco",  # Only if you need it, as it depends on TensorFlow
+    "comet_ml",
+    "wandb>=0.15.0",
+    "fastparquet>=2023.2.0",
+    "python-snappy>=0.6.1",
+    "ipywidgets>=8.0.0",
+    "pyarrow>=12.0.0"  # For Parquet, as an alternative to fastparquet
 ]
 
 test_requirements = [

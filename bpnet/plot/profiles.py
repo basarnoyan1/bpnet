@@ -131,7 +131,7 @@ def plot_profiles(seqlets_by_pattern,
 
     """
     import matplotlib.pyplot as plt
-    from concise.utils.plot import seqlogo_fig, seqlogo
+    from bpnet.sequence_utils import seqlogo_fig, seqlogo
 
     # Setup start-vec
     if start_vec is not None:
@@ -275,7 +275,7 @@ def plot_profiles_single(seqlet,
 
     """
     import matplotlib.pyplot as plt
-    from concise.utils.plot import seqlogo_fig, seqlogo
+    from bpnet.sequence_utils import seqlogo_fig, seqlogo
 
     # --------------
     # extract signal

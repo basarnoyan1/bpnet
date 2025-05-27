@@ -13,6 +13,9 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import numpy as np
 from scipy.signal import correlate
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def halve(n):
@@ -47,7 +50,7 @@ def rolling_window(a, window_width):
 
 
 def sliding_continousjaccard(qa, ta):
-    """Score the region with contionous jaccard
+    """Score the region with continuous jaccard
     Args:
       qa: query array (pattern) of shape (query_seqlen, channels) used for scanning
       ta: target array which gets scanned by qa of shape (..., target_seqlen, channels)
@@ -68,10 +71,13 @@ def sliding_continousjaccard(qa, ta):
 
     ta_strided = rolling_window(ta, window_len).swapaxes(-2, -1)
 
-    # compute the normalization factor
+    # compute the normalization factor with better numerical stability
     qa_L1_norm = np.sum(np.abs(qa))
     ta_L1_norm = np.sum(np.abs(ta_strided), axis=(-3, -2))
-    per_pos_scale_factor = qa_L1_norm / (ta_L1_norm + (0.0000001 * (ta_L1_norm == 0)))
+    
+    # Prevent division by zero with more robust epsilon
+    epsilon = 1e-10
+    per_pos_scale_factor = qa_L1_norm / np.maximum(ta_L1_norm, epsilon)
 
     ta_strided_normalized = ta_strided * per_pos_scale_factor[..., np.newaxis, np.newaxis, :]
 
@@ -83,7 +89,10 @@ def sliding_continousjaccard(qa, ta):
     # union = np.sum(np.maximum(np.abs(ta_strided_normalized), np.abs(qa_strided)), axis=(-3, -2))
     intersection = (np.sum(np.minimum(ta_strided_normalized_abs, qa_strided_abs) *
                            np.sign(ta_strided_normalized) * np.sign(qa_strided), axis=(-3, -2)))
-    return intersection / union, ta_L1_norm
+    
+    # Prevent division by zero in final calculation
+    jaccard = np.divide(intersection, union, out=np.zeros_like(intersection), where=union!=0)
+    return jaccard, ta_L1_norm
 
 
 def parallel_sliding_continousjaccard(qa, ta, pad_mode=None, n_jobs=10, verbose=True):
@@ -94,9 +103,14 @@ def parallel_sliding_continousjaccard(qa, ta, pad_mode=None, n_jobs=10, verbose=
 
     if pad_mode is used, the output shape is: (..., target_seqlen)
     """
-    r = np.stack(Parallel(n_jobs)(delayed(sliding_continousjaccard)(qa, ta[i])
-                                  for i in tqdm(range(len(ta)), disable=not verbose)))
-    return pad_same(r[:, 0], len(qa), pad_mode), pad_same(r[:, 1], len(qa), pad_mode)
+    try:
+        r = np.stack(Parallel(n_jobs)(delayed(sliding_continousjaccard)(qa, ta[i])
+                                      for i in tqdm(range(len(ta)), disable=not verbose)))
+        return pad_same(r[:, 0], len(qa), pad_mode), pad_same(r[:, 1], len(qa), pad_mode)
+    except Exception as e:
+        logger.error(f"Error in parallel sliding continous jaccard: {e}")
+        raise
+
 
 # ------------------------------------------------
 # PWM scanning
@@ -113,13 +127,18 @@ def sliding_dotproduct(qa, ta, pad_mode=None):
 def parallel_sliding_dotproduct(qa, ta, pad_mode=None, n_jobs=10, verbose=True):
     """Parallel version of sliding_dotproduct
     """
-    return pad_same(np.stack(Parallel(n_jobs)(delayed(sliding_dotproduct)(qa, ta[i][np.newaxis])
-                                              for i in tqdm(range(len(ta)), disable=not verbose)))[:, 0],
-                    len(qa), pad_mode)
+    try:
+        result = pad_same(np.stack(Parallel(n_jobs)(delayed(sliding_dotproduct)(qa, ta[i][np.newaxis])
+                                                  for i in tqdm(range(len(ta)), disable=not verbose)))[:, 0],
+                        len(qa), pad_mode)
+        return result
+    except Exception as e:
+        logger.error(f"Error in parallel sliding dot product: {e}")
+        raise
 
 
 def sliding_kl_divergence(qa, ta, kind='simmetric'):
-    """Score the region with contionous jaccard
+    """Score the region with KL divergence
     Args:
       qa: query array (pattern) of shape (query_seqlen, channels) used for scanning
       ta: target array which gets scanned by qa of shape (..., target_seqlen, channels)
@@ -129,8 +148,7 @@ def sliding_kl_divergence(qa, ta, kind='simmetric'):
         mean, median, symmetric
 
     Returns:
-      a tuple: (jaccard score of the normalized array, L1 magnitude of the scanned window)
-        both are of shape (..., target_seqlen - query_seqlen + 1)
+      KL divergence score array of shape (..., target_seqlen - query_seqlen + 1)
 
       if pad_mode is used, the output shape is: (..., target_seqlen)
     """
@@ -148,7 +166,12 @@ def sliding_kl_divergence(qa, ta, kind='simmetric'):
     qa_exp = qa[..., np.newaxis]
     # (..., channels, query_seqlen, 1)
 
-    # first sum computes the KL diver
+    # Add small epsilon to prevent log(0)
+    epsilon = 1e-10
+    qa_exp = np.maximum(qa_exp, epsilon)
+    ta_strided = np.maximum(ta_strided, epsilon)
+
+    # first sum computes the KL divergence
     if kind == 'qt':
         return (qa_exp * np.log(qa_exp / ta_strided)).sum(axis=1).mean(axis=1)
     elif kind == 'tq':
@@ -157,10 +180,12 @@ def sliding_kl_divergence(qa, ta, kind='simmetric'):
         qt = (qa_exp * np.log(qa_exp / ta_strided)).sum(axis=1).mean(axis=1)
         tq = (ta_strided * np.log(ta_strided / qa_exp)).sum(axis=1).mean(axis=1)
         return (qt + tq) / 2
+    else:
+        raise ValueError(f"Invalid kind: {kind}. Must be 'qt', 'tq', or 'simmetric'")
 
 
 def parallel_sliding_kl_divergence(qa, ta, kind='simmetric', pseudo_p=1e-6, pad_mode=None, n_jobs=10, verbose=True):
-    """Parallel version of sliding_continousjaccard
+    """Parallel version of sliding_kl_divergence
 
     pad: if not None, pad to achieve same padding. pad can be a constant value
         mean, median, symmetric
@@ -173,9 +198,13 @@ def parallel_sliding_kl_divergence(qa, ta, kind='simmetric', pseudo_p=1e-6, pad_
     ta = ta + pseudo_p
     ta = ta / ta.sum(axis=-1, keepdims=True)
 
-    return pad_same(np.concatenate(Parallel(n_jobs)(delayed(sliding_kl_divergence)(qa, ta[i][np.newaxis], kind=kind)
-                                                    for i in tqdm(range(len(ta)), disable=not verbose))),
-                    len(qa), pad_mode)
+    try:
+        results = Parallel(n_jobs)(delayed(sliding_kl_divergence)(qa, ta[i][np.newaxis], kind=kind)
+                                 for i in tqdm(range(len(ta)), disable=not verbose))
+        return pad_same(np.concatenate(results), len(qa), pad_mode)
+    except Exception as e:
+        logger.error(f"Error in parallel sliding KL divergence: {e}")
+        raise
 
 
 def sliding_similarity(qa, ta, metric='continousjaccard', pad_mode=None, n_jobs=10, verbose=True):
@@ -205,16 +234,27 @@ def sliding_similarity(qa, ta, metric='continousjaccard', pad_mode=None, n_jobs=
 # Example on how to implement pwm scanning using
 #
 def pssm_scan(pwm, seqs, background_probs=[0.27, 0.23, 0.23, 0.27], pad_mode='median', n_jobs=10, verbose=True):
-    """
+    """Perform PSSM scanning with improved error handling
     """
     def pwm2pssm(arr, background_probs):
         """Convert pwm array to pssm array
         pwm means that rows sum to one
         """
-        arr = arr / arr.sum(1, keepdims=True)
+        # Ensure array is properly normalized
+        arr = arr / (arr.sum(1, keepdims=True) + 1e-10)  # Prevent division by zero
         arr = arr + 0.01  # add pseudo-counts
         arr = arr / arr.sum(1, keepdims=True)
         b = np.array(background_probs)[np.newaxis]
+        
+        # Prevent log(0) by ensuring minimum values
+        arr = np.maximum(arr, 1e-10)
+        b = np.maximum(b, 1e-10)
+        
         return np.log(arr / b).astype(arr.dtype)
-    pssm = pwm2pssm(pwm, background_probs)
-    return sliding_similarity(pssm, seqs, 'dotproduct', pad_mode, n_jobs, verbose)
+    
+    try:
+        pssm = pwm2pssm(pwm, background_probs)
+        return sliding_similarity(pssm, seqs, 'dotproduct', pad_mode, n_jobs, verbose)
+    except Exception as e:
+        logger.error(f"Error in PSSM scan: {e}")
+        raise

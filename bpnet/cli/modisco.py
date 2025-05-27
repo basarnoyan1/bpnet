@@ -10,6 +10,7 @@ import os
 from collections import OrderedDict
 from tqdm import tqdm
 from pathlib import Path
+import torch
 from bpnet.utils import write_pkl, render_ipynb, remove_exists, add_file_logging, pd_first_cols
 from bpnet.cli.contrib import ContribFile
 from bpnet.cli.train import _get_gin_files, log_gin_config

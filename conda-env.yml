@@ -25,7 +25,6 @@ dependencies:
 - bioconda::bedtools>=2.27.1 # Keep if still needed for data processing
 - bioconda::pybigwig>=0.3.10
 - bioconda::pysam>=0.14.0 # Keep if still needed
-- bioconda::genomelake=0.1.4 # Check for PyTorch compatibility or replace if only for data loading
 
 # Other utilities
 - cython # Keep if needed for compiling any dependencies
